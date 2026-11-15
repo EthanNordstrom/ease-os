@@ -14,7 +14,7 @@ def localdb(pg):
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-    ctx = b.new_context(viewport={'width': 390, 'height': 844}, timezone_id='America/Los_Angeles', has_touch=True, is_mobile=True)
+    ctx = b.new_context(reduced_motion='reduce', viewport={'width': 390, 'height': 844}, timezone_id='America/Los_Angeles', has_touch=True, is_mobile=True)
     csp.apply(ctx, BASE)
     pg = ctx.new_page()
     errors = []

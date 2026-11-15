@@ -85,9 +85,9 @@ function RoutineBlock({ r, onEdit }: { r: Routine; onEdit: () => void }) {
               <button key={d} onClick={() => openEditor({ type: 'routineDay', routineId: r.id, date: d })} disabled={d > today}
                 aria-label={`${fmtDate(d, s.date_locale, { weekday: 'long', day: 'numeric', month: 'long' })}: ${p.current} of ${p.total} done`}
                 className={`relative aspect-square min-h-[44px] rounded border text-[11px] font-mono flex flex-col items-center justify-center transition-colors
-                  ${d === today ? 'border-fg-3' : 'border-ink-700'} ${sched || p.current ? 'hover:border-fg-3' : 'opacity-40'} disabled:opacity-30`}>
+                  ${d === today ? 'border-fg-3' : 'border-ink-700'} ${sched || p.current ? 'hover:border-fg-3' : 'border-dashed'} disabled:opacity-40`}>
                 <span className="absolute inset-x-1 bottom-1 h-1 rounded-full bg-ink-700 overflow-hidden"><span className="block h-full bg-acid" style={{ width: `${ratio * 100}%` }} /></span>
-                <span className="text-fg-2">{Number(d.slice(8))}</span>
+                <span className={sched || p.current ? 'text-fg' : 'text-fg-3'}>{Number(d.slice(8))}</span>
               </button>
             );
           })}

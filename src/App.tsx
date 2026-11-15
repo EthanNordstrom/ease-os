@@ -5,6 +5,8 @@ import { store, useStore, useSettings } from './lib/store';
 import { navigate, useRoute } from './lib/router';
 import { ConfirmHost, Field, Icon, SaveIndicator, Sheet, SyncIssues, ThemeToggle, Toasts } from './components/ui';
 import Welcome from './pages/Welcome';
+import Intro, { resetIntro, shouldShowIntro } from './components/Intro';
+import { nowParts } from './lib/dates';
 import { BRAND } from './lib/brand';
 import { EditorHost, openEditor } from './components/editors';
 import Today from './pages/Today';
@@ -110,6 +112,7 @@ async function signOutEverywhereHere() {
     localStorage.removeItem('ep.rest');
   } catch { /* ignore */ }
   history.replaceState(null, '', location.pathname);
+  resetIntro();
   await supabase!.auth.signOut();
 }
 
@@ -118,6 +121,7 @@ function Shell() {
   const s = useSettings();
   const route = useRoute();
   const [menu, setMenu] = useState(false);
+  const [intro, setIntro] = useState(shouldShowIntro);
   useEffect(() => { document.title = s.app_title; }, [s.app_title]);
 
   if (!st.ready) {
@@ -234,6 +238,11 @@ function Shell() {
         </div>
       </Sheet>
 
+      {intro && <Intro title={s.app_title} onDone={() => setIntro(false)} greeting={(() => {
+        const h = nowParts(s.timezone).hour;
+        const g = h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+        return s.display_name ? `${g}, ${s.display_name}` : g;
+      })()} />}
       <EditorHost />
       <ConfirmHost />
       <Toasts />

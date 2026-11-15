@@ -39,7 +39,7 @@ export default function Review() {
   const past = [...db.reviews].sort((a, b) => b.week_start.localeCompare(a.week_start)).slice(0, 8);
 
   return (
-    <div className="anim-fade max-w-3xl">
+    <div className="anim-fade max-w-3xl mx-auto">
       <header className="mb-8">
         <p className="label mb-3">Weekly review</p>
         <h1 className="h-display">Look back, then set up next week.</h1>

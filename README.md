@@ -13,6 +13,7 @@ The name lives in `src/lib/brand.ts`, `index.html` (`<title>`) and `public/manif
 - **Gym** — exercise library (weighted / bodyweight / timed), templates, planned workouts on the calendar, start/resume/finish, warm-up vs working sets, kg × reps, RPE, notes, add/duplicate/delete sets, timestamp-based rest timer, last-time results next to each exercise, history (editable), progress charts.
 - **Weekly review** — three questions, three priorities, a modest summary of counts. No scores.
 - **First run** — each new person picks their name, timezone (pre-filled from their device), week start and date format, then gets a short set-up checklist. Nothing is pre-filled.
+- **Look & feel** — dark / light / match-device theme and 21 accent colours (per device), a short startup animation on open and after sign-in (skipped with reduced motion), and gentle motion throughout.
 - **Tags** — your own calendar categories with a name and one of 20 colours; use them on events and filter the calendar by them.
 - **Settings** — theme (dark / light / match device), name, app title, timezone, week start, date format, 12/24 h, quotes & favourites, JSON export, erase all data, change password, delete account.
 
@@ -82,6 +83,7 @@ node tests/mock-supabase.mjs &        # stand-in Supabase API over the same migr
 python3 tests/e2e_demo.py  http://localhost:4173/   # 37 UI checks in demo mode, phone viewport, device clock in Los Angeles
 python3 tests/e2e_cloud.py http://localhost:4174/   # 19 checks: two devices, conflict, offline queue, second user
 python3 tests/e2e_fresh.py http://localhost:4175/   # 26 checks: new person, empty account, welcome, theme, password, erase, delete
+python3 tests/e2e_layout.py http://localhost:4173/  # desktop: centred dialogs, centred pages, accent colour, startup animation
 python3 tests/smoke.py     http://localhost:4173/   # overflow + screenshots at 390 / 768 / 1440 px
 ```
 

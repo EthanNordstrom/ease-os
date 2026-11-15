@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { store, useStore } from '../lib/store';
 import { weekdayShort } from '../lib/dates';
 import { setThemePref, useTheme } from '../lib/theme';
@@ -59,6 +60,8 @@ export function Sheet({ open, onClose, title, children, footer, wide = false, la
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => {
+      // Don't steal focus if the person has already started using a field in this dialog.
+      if (ref.current?.contains(document.activeElement)) return;
       const first = ref.current?.querySelector<HTMLElement>('[data-autofocus], input, textarea, select, button:not([data-close])');
       first?.focus();
     }, 30);
@@ -76,9 +79,10 @@ export function Sheet({ open, onClose, title, children, footer, wide = false, la
     return () => { clearTimeout(t); document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; prev?.focus?.(); };
   }, [open]);
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 anim-backdrop" onClick={onClose} />
+  // Rendered into <body> so it always covers the whole screen and sits centred, whatever page it's opened from.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-6">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px] anim-backdrop" onClick={onClose} />
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={labelledBy ?? id}
         className={`relative w-full ${wide ? 'md:max-w-3xl' : 'md:max-w-xl'} max-h-[100dvh] md:max-h-[88vh] flex flex-col bg-ink-900 border-ink-700
         border-t md:border rounded-t-xl md:rounded-xl anim-sheet md:anim-fade`}>
@@ -89,7 +93,8 @@ export function Sheet({ open, onClose, title, children, footer, wide = false, la
         <div className="overflow-y-auto overscroll-contain px-5 py-5 flex-1">{children}</div>
         {footer && <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-ink-700 pb-[max(12px,var(--safe-bottom))]">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

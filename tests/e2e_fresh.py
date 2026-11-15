@@ -10,7 +10,7 @@ def check(c, m): results.append((bool(c), m)); print(('PASS ' if c else 'FAIL ')
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests'])
-    ctx = b.new_context(viewport={'width': 390, 'height': 844}, timezone_id='Europe/London', locale='en-GB', has_touch=True, is_mobile=True)
+    ctx = b.new_context(reduced_motion='reduce', viewport={'width': 390, 'height': 844}, timezone_id='Europe/London', locale='en-GB', has_touch=True, is_mobile=True)
     csp.apply(ctx, BASE)
     pg = ctx.new_page(); errors = []
     pg.on('pageerror', lambda e: errors.append(str(e)))

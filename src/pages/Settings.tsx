@@ -4,9 +4,10 @@ import { supabase, LocalAdapter } from '../lib/adapters';
 import { timezones, todayISO } from '../lib/dates';
 import { BUILTIN_QUOTES } from '../lib/quotes';
 import { BRAND } from '../lib/brand';
-import { setThemePref, useTheme, type ThemePref } from '../lib/theme';
+import { ACCENTS, setAccent, setThemePref, useAccent, useTheme, type ThemePref } from '../lib/theme';
 import { Field, Icon, SectionHead, Segmented, Sheet, Toggle, confirmAction } from '../components/ui';
 import { toggleFavourite } from '../components/QuoteCard';
+import { resetIntro } from '../components/Intro';
 import type { Settings } from '../lib/types';
 
 /** Remove everything this app keeps in this browser (offline copy, unsent edits, timers) — except the theme choice. */
@@ -19,6 +20,7 @@ export default function SettingsPage() {
   const st = useStore();
   const db = useDB();
   const theme = useTheme();
+  const accent = useAccent();
   const [f, setF] = useState(s);
   const [user, setUser] = useState<{ id: string; email: string | null } | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
@@ -48,6 +50,7 @@ export default function SettingsPage() {
     if (user) { try { localStorage.removeItem(`ep.cache.cloud.${user.id}`); } catch { /* ignore */ } }
     try { localStorage.removeItem('ep.rest'); } catch { /* ignore */ }
     history.replaceState(null, '', location.pathname);
+    resetIntro();
     await supabase?.auth.signOut();
   };
 
@@ -70,14 +73,34 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="anim-fade max-w-3xl">
+    <div className="anim-fade max-w-3xl mx-auto">
       <header className="mb-10"><p className="label mb-3">Settings</p><h1 className="h-display">Preferences</h1></header>
 
       <section className="mb-14">
         <SectionHead title="Appearance" />
         <Segmented<ThemePref> label="Theme" value={theme.pref} onChange={setThemePref}
           options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Match device' }]} />
-        <p className="text-sm text-fg-3 mt-2">Saved on this device.</p>
+        <div className="mt-8">
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <span className="label">Accent colour</span>
+            <span className="meta text-fg-3">{ACCENTS.find((x) => x.key === accent)?.name}</span>
+          </div>
+          <div role="radiogroup" aria-label="Accent colour" className="flex flex-wrap gap-2">
+            {ACCENTS.map((c) => (
+              <button key={c.key} role="radio" aria-checked={accent === c.key} aria-label={c.name} title={c.name} onClick={() => setAccent(c.key)}
+                className={`w-11 h-11 md:w-9 md:h-9 shrink-0 rounded-full grid place-items-center transition-transform duration-200 hover:scale-110 active:scale-95 ${accent === c.key ? 'ring-2 ring-offset-2 ring-offset-ink-950 ring-fg' : ''}`}
+                style={{ background: c.hex }}>
+                {accent === c.key && <Icon name="check" size={14} strokeWidth={2.8} className={c.key === 'acid' ? 'text-[#14180B]' : 'text-white'} />}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 mt-5">
+            <span className="btn-primary pointer-events-none">Preview button</span>
+            <span className="text-acid">Accent text</span>
+            <span className="w-24 h-1 rounded-full bg-ink-700 overflow-hidden"><span className="block h-full w-2/3 bg-acid" /></span>
+          </div>
+        </div>
+        <p className="text-sm text-fg-3 mt-4">Theme and accent are saved on this device.</p>
       </section>
 
       <section className="mb-14">

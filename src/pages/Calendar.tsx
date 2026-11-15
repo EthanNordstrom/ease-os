@@ -152,20 +152,20 @@ function MonthView({ anchor, byDay, today, selected, setSelected, desktop }: { a
   const sel = byDay.get(selected) ?? [];
   return (
     <div>
-      <div className="grid grid-cols-7 border-t border-l border-ink-700" role="grid" aria-label={fmtMonth(anchor, s.date_locale)}>
+      <div className="grid grid-cols-7 border-t border-l border-ink-700" aria-label={fmtMonth(anchor, s.date_locale)}>
         {Array.from({ length: 7 }, (_, i) => (i + s.week_start) % 7).map((wd) => (
-          <div key={wd} role="columnheader" className="border-r border-b border-ink-700 py-2 text-center label">{weekdayShort(wd, s.date_locale).slice(0, desktop ? 3 : 1)}</div>
+          <div key={wd} aria-hidden className="border-r border-b border-ink-700 py-2 text-center label">{weekdayShort(wd, s.date_locale).slice(0, desktop ? 3 : 1)}</div>
         ))}
         {days.map((d) => {
           const list = byDay.get(d) ?? [];
           const out = d.slice(0, 7) !== month;
           const isSel = d === selected;
           return (
-            <div key={d} role="gridcell" aria-selected={isSel} {...(desktop ? dropProps(d) : {})}
+            <div key={d} {...(desktop ? dropProps(d) : {})}
               className={`border-r border-b border-ink-700 ${desktop ? 'min-h-[118px]' : 'min-h-[56px]'} ${out ? 'bg-ink-950' : 'bg-ink-900/40'} ${isSel ? 'outline outline-1 outline-fg-3 -outline-offset-1' : ''}`}>
-              <button onClick={() => setSelected(d)} aria-label={`${fmtDate(d, s.date_locale, { weekday: 'long', day: 'numeric', month: 'long' })}, ${list.length} items`}
+              <button onClick={() => setSelected(d)} aria-pressed={isSel} aria-label={`${fmtDate(d, s.date_locale, { weekday: 'long', day: 'numeric', month: 'long' })}, ${list.length} items`}
                 className="w-full min-h-[44px] flex flex-col items-start p-1.5 text-left">
-                <span className={`font-mono text-xs w-6 h-6 grid place-items-center rounded-full ${d === today ? 'bg-acid text-acid-ink' : out ? 'text-fg-3/60' : 'text-fg-2'}`}>{Number(d.slice(8))}</span>
+                <span className={`font-mono text-xs w-6 h-6 grid place-items-center rounded-full ${d === today ? 'bg-acid text-acid-ink' : out ? 'text-fg-3' : 'text-fg-2'}`}>{Number(d.slice(8))}</span>
                 {!desktop && list.length > 0 && (
                   <span className="flex flex-wrap gap-0.5 mt-1 px-0.5">{list.slice(0, 4).map((i) => <span key={i.key} className={`w-1.5 h-1.5 rounded-full ${i.completed ? 'bg-acid' : ''}`} style={i.completed ? {} : { border: `1px solid ${i.color}` }} />)}</span>
                 )}

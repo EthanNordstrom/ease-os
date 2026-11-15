@@ -31,7 +31,7 @@ export default function LineChart({ data, unit, label, fmtX }: { data: SeriesPoi
         {data.map((d, i) => (
           <g key={i}>
             <circle cx={x(i)} cy={y(d.value)} r={hover === i ? 5 : 4} fill="rgb(var(--acid))" stroke="rgb(var(--ink-900))" strokeWidth={2} />
-            <rect x={x(i) - 16} y={T} width={32} height={H - T - B} fill="transparent" tabIndex={0} aria-label={`${fmtX(d.date)}: ${d.value} ${unit}`}
+            <rect x={x(i) - 16} y={T} width={32} height={H - T - B} fill="transparent" tabIndex={0} role="img" aria-label={`${fmtX(d.date)}: ${d.value} ${unit}`}
               onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} />
           </g>
         ))}

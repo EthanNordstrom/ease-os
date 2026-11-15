@@ -10,7 +10,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     errors = []
     for w, h in [(390, 844), (768, 1024), (1440, 900)]:
-        ctx = b.new_context(viewport={'width': w, 'height': h}, timezone_id='America/Los_Angeles', device_scale_factor=1, has_touch=w < 800)
+        ctx = b.new_context(reduced_motion='reduce', viewport={'width': w, 'height': h}, timezone_id='America/Los_Angeles', device_scale_factor=1, has_touch=w < 800)
         pg = ctx.new_page()
         pg.on('pageerror', lambda e: errors.append(str(e)))
         pg.on('console', lambda m: m.type == 'error' and errors.append(m.text))

@@ -31,8 +31,8 @@ def sign_in(pg, email, pw, create=False):
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests'])
-    ctxs = [b.new_context(viewport={'width': 390, 'height': 844}, timezone_id='Australia/Brisbane', has_touch=True, is_mobile=True),
-            b.new_context(viewport={'width': 1440, 'height': 900}, timezone_id='Australia/Brisbane'), b.new_context(viewport={'width': 1440, 'height': 900})]
+    ctxs = [b.new_context(reduced_motion='reduce', viewport={'width': 390, 'height': 844}, timezone_id='Australia/Brisbane', has_touch=True, is_mobile=True),
+            b.new_context(reduced_motion='reduce', viewport={'width': 1440, 'height': 900}, timezone_id='Australia/Brisbane'), b.new_context(reduced_motion='reduce', viewport={'width': 1440, 'height': 900})]
     for c in ctxs: csp.apply(c, BASE)
     phone, laptop, other = [c.new_page() for c in ctxs]
     errors = []

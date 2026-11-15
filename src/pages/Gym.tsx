@@ -7,6 +7,7 @@ import { Empty, Field, Icon, Segmented, Sheet, confirmAction, num } from '../com
 import { entriesFromTemplate, openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
 import LineChart from '../components/LineChart';
+import { createPortal } from 'react-dom';
 
 type Tab = 'plan' | 'templates' | 'exercises' | 'history' | 'progress';
 const KIND_LABEL: Record<ExerciseKind, string> = { weighted: 'Weighted', bodyweight: 'Bodyweight', timed: 'Timed' };
@@ -113,7 +114,7 @@ function RestTimer() {
   const left = Math.max(0, Math.round((rest.ends_at - now) / 1000));
   if (left === 0 && !buzzed) { setBuzzed(true); try { navigator.vibrate?.([120, 80, 120]); } catch { /* not supported */ } }
   const adj = (d: number) => writeRest({ ...rest, ends_at: Math.max(Date.now(), rest.ends_at + d * 1000), total: Math.max(1, rest.total + d) });
-  return (
+  return createPortal(
     <div className="fixed z-40 inset-x-0 bottom-[calc(64px+var(--safe-bottom))] md:bottom-0 md:left-[232px] lg:left-[248px] bg-ink-850 border-t border-ink-600" role="timer" aria-live="off">
       <div className="h-0.5 bg-ink-700"><div className="h-full bg-acid transition-[width] duration-200" style={{ width: `${(1 - left / rest.total) * 100}%` }} /></div>
       <div className="max-w-[1180px] mx-auto flex items-center gap-2 px-4 py-2">
@@ -125,7 +126,8 @@ function RestTimer() {
         <button className="btn-outline px-3" onClick={() => adj(15)} aria-label="Fifteen seconds more">+15</button>
         <button className="btn-ghost" onClick={() => writeRest(null)}>{left ? 'Skip' : 'Close'}</button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

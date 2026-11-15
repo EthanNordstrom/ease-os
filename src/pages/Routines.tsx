@@ -5,10 +5,11 @@ import { routineProgress, routineScheduledOn } from '../lib/domain';
 import type { Routine, RoutineItem } from '../lib/types';
 import { Empty, Field, Icon, Sheet, Toggle, WeekdayPicker, confirmAction } from '../components/ui';
 import { openEditor } from '../components/editors';
+import { navigate } from '../lib/router';
 
-export default function Routines() {
+export default function Routines({ startNew = false }: { startNew?: boolean }) {
   const db = useDB();
-  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [editing, setEditing] = useState<string | 'new' | null>(startNew ? 'new' : null);
   const routines = [...db.routines].sort((a, b) => Number(b.active) - Number(a.active) || (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
   return (
     <div className="anim-fade">
@@ -23,7 +24,7 @@ export default function Routines() {
       <div className="space-y-14">
         {routines.map((r) => <RoutineBlock key={r.id} r={r} onEdit={() => setEditing(r.id)} />)}
       </div>
-      {editing && <RoutineEditor routine={editing === 'new' ? null : db.routines.find((r) => r.id === editing) ?? null} onClose={() => setEditing(null)} />}
+      {editing && <RoutineEditor routine={editing === 'new' ? null : db.routines.find((r) => r.id === editing) ?? null} onClose={() => { setEditing(null); if (startNew) navigate('routines'); }} />}
     </div>
   );
 }
@@ -57,7 +58,7 @@ function RoutineBlock({ r, onEdit }: { r: Routine; onEdit: () => void }) {
           <button className="btn-ghost" onClick={onEdit}><Icon name="edit" size={16} />Edit</button>
         </div>
       </div>
-      <ol className="mt-2">
+      <ol className="stagger mt-2">
         {r.items.map((it, i) => (
           <li key={it.id} className="row">
             <span className="w-8 meta text-fg-3">{String(i + 1).padStart(2, '0')}</span>

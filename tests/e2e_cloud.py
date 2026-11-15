@@ -2,6 +2,7 @@
 real supabase-js client against tests/mock-supabase.mjs (real migration + RLS)."""
 import json, sys, time, urllib.request
 from playwright.sync_api import sync_playwright
+import csp
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:4174/'
 API = 'http://127.0.0.1:54321'
@@ -22,21 +23,25 @@ def sync(pg):
     pg.wait_for_timeout(1500)
 def sign_in(pg, email, pw, create=False):
     pg.goto(BASE); pg.wait_for_timeout(600)
-    if create: pg.get_by_role('radio', name='Create account').click()
-    pg.get_by_label('Email').fill(email); pg.get_by_label('Password').fill(pw)
+    if create: pg.get_by_role('tab', name='Create account').click()
+    pg.get_by_label('Email').fill(email); pg.get_by_label('Password', exact=True).fill(pw)
+    if create: pg.get_by_label('Confirm password').fill(pw)
     pg.get_by_role('button', name='Create account' if create else 'Sign in', exact=True).click()
     pg.wait_for_timeout(1500)
 
 with sync_playwright() as p:
-    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-    phone = b.new_context(viewport={'width': 390, 'height': 844}, timezone_id='Australia/Brisbane', has_touch=True, is_mobile=True).new_page()
-    laptop = b.new_context(viewport={'width': 1440, 'height': 900}, timezone_id='Australia/Brisbane').new_page()
-    other = b.new_context(viewport={'width': 1440, 'height': 900}).new_page()
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests'])
+    ctxs = [b.new_context(viewport={'width': 390, 'height': 844}, timezone_id='Australia/Brisbane', has_touch=True, is_mobile=True),
+            b.new_context(viewport={'width': 1440, 'height': 900}, timezone_id='Australia/Brisbane'), b.new_context(viewport={'width': 1440, 'height': 900})]
+    for c in ctxs: csp.apply(c, BASE)
+    phone, laptop, other = [c.new_page() for c in ctxs]
     errors = []
-    for pg in (phone, laptop, other): pg.on('pageerror', lambda e: errors.append(str(e)))
+    for pg in (phone, laptop, other):
+        pg.on('pageerror', lambda e: errors.append(str(e)))
+        pg.on('console', lambda m: 'Content Security Policy' in m.text and errors.append(m.text))
 
     sign_in(phone, 'ethan@example.com', 'password123', create=True)
-    check(phone.get_by_text('Good').first.is_visible(), 'phone: account created and Today loads')
+    check((phone.locator('h1').first.wait_for() or True) and ', ' in phone.locator('h1').first.inner_text(), 'phone: account created and Today loads')
     check(wait_saved(phone, 30), 'phone: first-run data reaches the database (status shows Saved)')
 
     sign_in(laptop, 'ethan@example.com', 'password123')
@@ -87,7 +92,7 @@ with sync_playwright() as p:
     # A different user sees none of it
     sign_in(other, 'someone@example.com', 'password456', create=True)
     wait_saved(other, 30)
-    other.get_by_text('Good').first.wait_for()
+    other.locator('h1').first.wait_for()
     check(other.get_by_text('Offline priority').count() == 0, 'second user cannot see Ethan’s priorities')
     tok = json.loads([v for k, v in other.evaluate('Object.entries(localStorage)') if k.startswith('sb-')][0])['access_token']
     gid = goal_hash.split('/')[-1]

@@ -15,8 +15,8 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-await db.exec(readFileSync(new URL('../supabase/migrations/0001_init.sql', import.meta.url), 'utf8'));
-const TABLES = new Set(['settings', 'routines', 'routine_completions', 'goals', 'milestones', 'tasks', 'exercises', 'workout_templates', 'workouts', 'events', 'quotes', 'reviews']);
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+const TABLES = new Set(['settings', 'routines', 'routine_completions', 'goals', 'milestones', 'tasks', 'exercises', 'workout_templates', 'workouts', 'events', 'quotes', 'reviews', 'tags']);
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const token = (u) => { const exp = Math.floor(Date.now() / 1000) + 3600; return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp })}.sig`; };
@@ -58,12 +58,25 @@ http.createServer(async (req, res) => {
       if (!r.rows.length) return send(res, 400, { error: 'invalid_grant', error_description: 'Invalid login credentials', msg: 'Invalid login credentials', code: 'invalid_credentials' });
       return send(res, 200, session(r.rows[0]));
     }
+    if (url.pathname === '/auth/v1/recover') return send(res, 200, {});
+    if (url.pathname === '/auth/v1/user' && req.method === 'PUT') {
+      const sub = subFrom(req);
+      if (body?.password) await serial(() => db.query('update auth.users set password=$1 where id=$2', [body.password, sub]));
+      const r = await serial(() => db.query('select id,email from auth.users where id=$1', [sub]));
+      return send(res, 200, userObj(r.rows[0]));
+    }
     if (url.pathname === '/auth/v1/user') {
       const sub = subFrom(req); const r = await serial(() => db.query('select id,email from auth.users where id=$1', [sub]));
       return r.rows.length ? send(res, 200, userObj(r.rows[0])) : send(res, 401, { msg: 'no user' });
     }
     if (url.pathname === '/auth/v1/logout') return send(res, 204);
 
+    // ---------- rpc ----------
+    const rpc = url.pathname.match(/^\/rest\/v1\/rpc\/(\w+)$/);
+    if (rpc) {
+      await asUser(subFrom(req), () => db.query(`select public.${rpc[1]}()`));
+      return send(res, 204);
+    }
     // ---------- rest ----------
     const m = url.pathname.match(/^\/rest\/v1\/(\w+)$/);
     if (!m || !TABLES.has(m[1])) return send(res, 404, { message: 'not found' });

@@ -56,6 +56,7 @@ export interface CalEvent extends Base {
   exceptions: Record<ISODate, OccurrenceOverride>;
   goal_id: string | null;
   workout_id: string | null;
+  tag_id?: string | null;
 }
 
 export type GoalStage = 'idea' | 'active' | 'paused' | 'completed' | 'archived';
@@ -108,6 +109,7 @@ export interface Workout extends Base {
 }
 
 export interface Quote extends Base { text: string; builtin_id: string | null; favourite: boolean; own: boolean }
+export interface Tag extends Base { name: string; color: string; sort: number }
 export interface Review extends Base { week_start: ISODate; went_well: string; got_in_way: string; change_next: string; priorities: string[] }
 
 export interface Tables {
@@ -123,11 +125,12 @@ export interface Tables {
   workouts: Workout;
   quotes: Quote;
   reviews: Review;
+  tags: Tag;
 }
 export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   'settings', 'routines', 'routine_completions', 'events', 'goals', 'milestones', 'tasks',
-  'exercises', 'workout_templates', 'workouts', 'quotes', 'reviews',
+  'exercises', 'workout_templates', 'workouts', 'quotes', 'reviews', 'tags',
 ];
 export type DB = { [K in TableName]: Tables[K][] };
 export const emptyDB = (): DB => Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as DB;

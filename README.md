@@ -1,8 +1,10 @@
-# Ethan / Personal
-
+# Ease OS
 
 A calm personal workspace for routines, goals, training and creative momentum.
-Works on iPhone (installable to the Home Screen) and desktop, with sync through Supabase.
+Anyone can sign up; every account starts empty and syncs across that person's devices through Supabase.
+Works on iPhone and Android (installable to the Home Screen) and on desktop, in dark or light mode.
+
+The name lives in `src/lib/brand.ts`, `index.html` (`<title>`) and `public/manifest.webmanifest`.
 
 - **Today** — greeting, morning routine checklist, up to three priorities, next actions for active goals, today's workout, upcoming events, a daily line, quick add.
 - **Routines** — editable routines with ordered steps (notes, minutes), weekdays, start time, active/inactive. Check-offs are stored per date; editing never erases history; any past day can be ticked or un-ticked.
@@ -10,7 +12,9 @@ Works on iPhone (installable to the Home Screen) and desktop, with sync through 
 - **Goals** — Ideas → Active → Completed/Archived, promote without retyping, milestones with deadlines, tasks, next action, progress notes, explicit progress method (milestones/tasks done, or a numeric target). List and timeline views (vertical timeline on phones).
 - **Gym** — exercise library (weighted / bodyweight / timed), templates, planned workouts on the calendar, start/resume/finish, warm-up vs working sets, kg × reps, RPE, notes, add/duplicate/delete sets, timestamp-based rest timer, last-time results next to each exercise, history (editable), progress charts.
 - **Weekly review** — three questions, three priorities, a modest summary of counts. No scores.
-- **Settings** — name, app title, timezone, week start, date format, 12/24 h, quotes & favourites, JSON export, example data, account.
+- **First run** — each new person picks their name, timezone (pre-filled from their device), week start and date format, then gets a short set-up checklist. Nothing is pre-filled.
+- **Tags** — your own calendar categories with a name and one of 20 colours; use them on events and filter the calendar by them.
+- **Settings** — theme (dark / light / match device), name, app title, timezone, week start, date format, 12/24 h, quotes & favourites, JSON export, erase all data, change password, delete account.
 
 ## Run it
 
@@ -24,8 +28,8 @@ With no `.env`, the app runs as a **local demo**: data is kept in that browser o
 ## Set up sync (Supabase)
 
 1. Create a free project at supabase.com.
-2. **SQL Editor** → paste and run `supabase/migrations/0001_init.sql` (or `supabase db push` with the CLI).
-3. **Authentication → URL Configuration**: set *Site URL* to where you'll host the app (e.g. `https://ethan-personal.vercel.app`) and add it to *Redirect URLs* (needed for email links/confirmation). Optionally turn off "Confirm email" if it's just you.
+2. **SQL Editor** → run `supabase/migrations/0001_init.sql`, then `0002_hardening.sql`, then `0003_accounts.sql`, then `0004_tags_and_limits.sql` (or `supabase db push` with the CLI).
+3. **Authentication → URL Configuration**: set *Site URL* to where you'll host the app (e.g. `https://ease-os.<you>.workers.dev`) and add it to *Redirect URLs* (needed for confirmation, email-link and password-reset emails).
 4. Copy `.env.example` to `.env` and fill in **Project URL** and the **anon public** key (Project Settings → API). Never use the `service_role` key — the app doesn't need it.
 5. `npm run build` → deploy the `dist/` folder to any static host (Vercel, Netlify, Cloudflare Pages). Add the two `VITE_…` variables in the host's settings.
 6. On your iPhone open the URL in Safari → Share → **Add to Home Screen**. Sign in with the same account on your computer.
@@ -55,14 +59,29 @@ Design decisions worth knowing:
 - **Stale-edit protection:** every update is `… WHERE id = ? AND version = ?`; a trigger bumps `version`. If another device changed the record first, nothing is overwritten and the app asks which version to keep.
 - **Saving:** edits apply instantly on screen and go into a persisted outbox. The status shows *Saving… / Saved / Offline · n waiting / Couldn't save / Needs a decision*. Failed saves stay until you retry or explicitly discard them.
 
+## Security
+
+- Every table has Row Level Security: a signed-in user can only read and change their own rows. Signed-out requests get nothing.
+- Ownership can't be changed after a row is created. Links between records (milestone → goal, event → goal/workout, workout → template, check-off → routine) must stay within one user's data.
+- The browser only ever holds the Supabase *publishable* key. The secret / service_role key is never used.
+- `public/_headers` sets a strict Content-Security-Policy (scripts only from the app itself; network only to Supabase), plus HSTS, no framing, nosniff, a strict referrer policy and permissions policy.
+- React escapes all text you type; the app never injects raw HTML.
+- Signing out removes the offline copy of your data from that device.
+- Public sign-ups need your own email sender: Supabase's built-in email only reaches your own team and is heavily rate-limited. Set up custom SMTP (Resend, Brevo, etc.) under **Authentication → Emails → SMTP Settings**, and keep **Confirm email** on.
+- **Abuse limits (database):** each account can make at most 240 changes per minute (the app batches edits and retries automatically if it ever hits this), and has a row cap per table (e.g. 10,000 events). Counters live in a private schema the API can't reach.
+- **Abuse limits (sign-in):** Supabase Auth rate-limits sign-ups, sign-ins and emails per IP (Authentication → Rate Limits). Add Cloudflare Turnstile (`VITE_TURNSTILE_SITE_KEY` + the secret in Authentication → Attack Protection) to stop bot sign-ups. The sign-in form also pauses briefly after a failed attempt.
+- Users can erase their data or delete their account themselves (`erase_my_data()` / `delete_my_account()`, which only ever act on the caller).
+
 ## Tests
 
 ```bash
-npm run test:db                       # migration + RLS, stale edits, per-date completions, date-only storage (in-process Postgres)
-node tests/mock-supabase.mjs &        # stand-in Supabase API over the same migration
-# build both variants and serve them, then:
-python3 tests/e2e_demo.py  http://localhost:4173/   # 32 UI checks in demo mode, phone viewport, device clock in Los Angeles
+npm run test:db                       # migrations + RLS, cross-user links, stale edits, per-date completions, date-only storage (in-process Postgres)
+node tests/mock-supabase.mjs &        # stand-in Supabase API over the same migrations
+# Test builds use VITE_TEST_SEED=1 to load example data (never included in a normal build).
+# Serve: demo (seed) on 4173, cloud (seed) on 4174, production cloud build on 4175, then:
+python3 tests/e2e_demo.py  http://localhost:4173/   # 37 UI checks in demo mode, phone viewport, device clock in Los Angeles
 python3 tests/e2e_cloud.py http://localhost:4174/   # 19 checks: two devices, conflict, offline queue, second user
+python3 tests/e2e_fresh.py http://localhost:4175/   # 26 checks: new person, empty account, welcome, theme, password, erase, delete
 python3 tests/smoke.py     http://localhost:4173/   # overflow + screenshots at 390 / 768 / 1440 px
 ```
 
@@ -76,4 +95,6 @@ python3 tests/smoke.py     http://localhost:4173/   # overflow + screenshots at 
 - Recurring events support daily, weekly (chosen days, every N weeks) and monthly-by-date; no "this and following" split or nth-weekday rules. Times are interpreted in the single timezone set in Settings.
 - Week view lists events per day rather than drawing an hour grid.
 - Dragging on the calendar is desktop-only; on phones, reschedule from the edit form.
-- No reference images came through with the brief, so the look is based on the written direction.
+- Free Supabase projects have no downloadable backups and can pause after a long stretch of no use. Use **Settings → Export JSON** now and then.
+- Theme choice is per device, not synced.
+- No privacy policy page is included — if you share the app publicly, add one (what you store: email + the data people enter).

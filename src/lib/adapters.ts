@@ -6,6 +6,7 @@ type Row = Record<string, any>;
 export type OpResult =
   | { ok: true; row: Row | null }
   | { ok: false; kind: 'offline' }
+  | { ok: false; kind: 'busy' }
   | { ok: false; kind: 'conflict'; current: Row | null }
   | { ok: false; kind: 'duplicate' }
   | { ok: false; kind: 'error'; message: string };
@@ -27,6 +28,13 @@ export const supabase: SupabaseClient | null = cloudConfigured
   ? createClient(URL!, KEY!, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } })
   : null;
 
+// Server-side protections (supabase/migrations/0004): EP429 = too many writes this minute, EP413 = storage quota.
+const friendly = (error: any): OpResult => {
+  if (error?.code === 'EP429' || /rate limit/i.test(error?.message ?? '')) return { ok: false, kind: 'busy' };
+  if (error?.code === 'EP413') return { ok: false, kind: 'error', message: 'You’ve reached the storage limit for this kind of item. Delete some old ones to add more.' };
+  return { ok: false, kind: 'error', message: error?.message ?? String(error) };
+};
+
 const looksOffline = (err: any) =>
   !navigator.onLine || /fetch|network|load failed|timeout/i.test(String(err?.message ?? err ?? ''));
 
@@ -44,6 +52,8 @@ export class CloudAdapter implements Adapter {
     const db = emptyDB();
     const results = await Promise.all(TABLES.map((t) => this.sb.from(t).select('*')));
     results.forEach((r, i) => {
+      // A table added by a newer migration that hasn't been run yet: treat as empty rather than failing.
+      if (r.error && (r.error.code === '42P01' || r.error.code === 'PGRST205' || /could not find the table/i.test(r.error.message))) return;
       if (r.error) throw r.error;
       (db as any)[TABLES[i]] = r.data ?? [];
     });
@@ -70,7 +80,7 @@ export class CloudAdapter implements Adapter {
         if (existing) return { ok: true, row: existing };
         return { ok: false, kind: 'duplicate' }; // a different unique key (e.g. same routine item + date)
       }
-      return { ok: false, kind: 'error', message: error.message };
+      return friendly(error);
     } catch (e) {
       return looksOffline(e) ? { ok: false, kind: 'offline' } : { ok: false, kind: 'error', message: String(e) };
     }
@@ -80,7 +90,7 @@ export class CloudAdapter implements Adapter {
     try {
       const { id, user_id, ...patch } = strip(rec);
       const { data, error } = await this.sb.from(t).update(patch).eq('id', id).eq('version', baseVersion).select();
-      if (error) return looksOffline(error) ? { ok: false, kind: 'offline' } : { ok: false, kind: 'error', message: error.message };
+      if (error) return looksOffline(error) ? { ok: false, kind: 'offline' } : friendly(error);
       if (data && data.length === 1) return { ok: true, row: data[0] };
       const current = await this.fetchOne(t, rec.id);
       if (current === 'offline') return { ok: false, kind: 'offline' };
@@ -95,7 +105,7 @@ export class CloudAdapter implements Adapter {
       let q = this.sb.from(t).delete().eq('id', id);
       if (baseVersion != null) q = q.eq('version', baseVersion);
       const { data, error } = await q.select();
-      if (error) return looksOffline(error) ? { ok: false, kind: 'offline' } : { ok: false, kind: 'error', message: error.message };
+      if (error) return looksOffline(error) ? { ok: false, kind: 'offline' } : friendly(error);
       if (data && data.length === 1) return { ok: true, row: null };
       const current = await this.fetchOne(t, id);
       if (current === 'offline') return { ok: false, kind: 'offline' };

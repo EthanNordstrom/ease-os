@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { store, useStore } from '../lib/store';
 import { weekdayShort } from '../lib/dates';
+import { setThemePref, useTheme } from '../lib/theme';
 
 /* ---------------- Icons (1.5px strokes, minimal) ---------------- */
 const paths: Record<string, string> = {
@@ -35,6 +36,9 @@ const paths: Record<string, string> = {
   drag: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   arrow: 'M5 12h14M13 6l6 6-6 6',
   history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 8v4l3 2',
+  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  moon: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
+  logout: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10',
 };
 export function Icon({ name, size = 20, className = '', strokeWidth = 1.5 }: { name: keyof typeof paths | string; size?: number; className?: string; strokeWidth?: number }) {
   return (
@@ -148,9 +152,9 @@ export function CheckButton({ checked, onClick, label, size = 'md' }: { checked:
   return (
     <button onClick={onClick} aria-pressed={checked} aria-label={label}
       className={`shrink-0 ${dim} grid place-items-center rounded transition-colors duration-150 group`}>
-      <span className={`grid place-items-center ${size === 'lg' ? 'w-9 h-9' : 'w-6 h-6'} rounded-[5px] border transition-colors duration-150
-        ${checked ? 'bg-acid border-acid text-acid-ink' : 'border-ink-500 group-hover:border-fg-3 text-transparent'}`}>
-        <Icon name="check" size={size === 'lg' ? 22 : 16} strokeWidth={2.2} />
+      <span key={String(checked)} className={`grid place-items-center ${size === 'lg' ? 'w-9 h-9' : 'w-6 h-6'} rounded-[5px] border transition-colors duration-200
+        ${checked ? 'bg-acid border-acid text-acid-ink anim-pop' : 'border-ink-500 group-hover:border-fg-3 group-active:scale-90 text-transparent'}`}>
+        {checked && <svg width={size === 'lg' ? 22 : 16} height={size === 'lg' ? 22 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path className="anim-draw" d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
       </span>
     </button>
   );
@@ -176,7 +180,7 @@ export function WeekdayPicker({ value, onChange, locale, weekStart }: { value: n
 export function Progress({ ratio, label }: { ratio: number; label: string }) {
   return (
     <div className="h-1 rounded-full bg-ink-700 overflow-hidden" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}>
-      <div className="h-full bg-acid transition-[width] duration-300" style={{ width: `${Math.round(ratio * 100)}%` }} />
+      <div className="h-full bg-acid transition-[width] duration-700" style={{ width: `${Math.round(ratio * 100)}%`, transitionTimingFunction: 'var(--ease-out)' }} />
     </div>
   );
 }
@@ -264,13 +268,23 @@ export function Toasts() {
   return (
     <div className="fixed z-[60] left-0 right-0 top-[calc(60px+var(--safe-top))] md:top-auto md:bottom-6 flex flex-col items-center gap-2 px-4 pointer-events-none" aria-live="polite">
       {s.toasts.map((t) => (
-        <div key={t.id} className={`pointer-events-auto anim-fade flex items-center gap-3 max-w-md w-full md:w-auto bg-ink-800 border ${t.tone === 'error' ? 'border-bad/50' : 'border-ink-600'} rounded-lg pl-4 pr-1 py-1 shadow-2xl shadow-black/50`}>
+        <div key={t.id} className={`pointer-events-auto anim-rise flex items-center gap-3 max-w-md w-full md:w-auto bg-ink-800 border ${t.tone === 'error' ? 'border-bad/50' : 'border-ink-600'} rounded-lg pl-4 pr-1 py-1 shadow-2xl shadow-black/50`}>
           <span className="text-sm flex-1 py-2">{t.message}</span>
           {t.action && <button className="btn-ghost text-acid hover:text-acid" onClick={() => { t.action!.run(); store.dismiss(t.id); }}>{t.action.label}</button>}
           <button className="icon-btn" aria-label="Dismiss" onClick={() => store.dismiss(t.id)}><Icon name="x" size={16} /></button>
         </div>
       ))}
     </div>
+  );
+}
+
+export function ThemeToggle({ className = '' }: { className?: string }) {
+  const { resolved } = useTheme();
+  const next = resolved === 'dark' ? 'light' : 'dark';
+  return (
+    <button className={`icon-btn ${className}`} onClick={() => setThemePref(next)} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`}>
+      <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={19} />
+    </button>
   );
 }
 

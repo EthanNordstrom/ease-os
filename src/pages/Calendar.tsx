@@ -6,6 +6,8 @@ import type { Category, ISODate } from '../lib/types';
 import { Icon, Segmented } from '../components/ui';
 import { openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
+import { tagHex } from '../lib/palette';
+import { TagEditor, TagManager } from '../components/Tags';
 
 type View = 'month' | 'week' | 'agenda';
 const useIsDesktop = () => {
@@ -45,7 +47,9 @@ export default function CalendarPage() {
   const [view, setView] = useState<View>(() => (matchMedia('(min-width: 768px)').matches ? 'month' : 'agenda'));
   const [anchor, setAnchor] = useState<ISODate>(today);
   const [selected, setSelected] = useState<ISODate>(today);
-  const [hidden, setHidden] = useState<Category[]>(() => { try { return JSON.parse(localStorage.getItem('ep.calHidden') || '[]'); } catch { return []; } });
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [newTag, setNewTag] = useState(false);
+  const [hidden, setHidden] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('ep.calHidden') || '[]'); } catch { return []; } });
   useEffect(() => localStorage.setItem('ep.calHidden', JSON.stringify(hidden)), [hidden]);
 
   const { from, to } = useMemo(() => {
@@ -53,7 +57,7 @@ export default function CalendarPage() {
     if (view === 'week') { const f = startOfWeek(anchor, s.week_start); return { from: f, to: addDays(f, 6) }; }
     return { from: anchor, to: addDays(anchor, 34) };
   }, [view, anchor, s.week_start]);
-  const items = useMemo(() => calendarItems(db, from, to, today).filter((i) => !hidden.includes(i.category)), [db, from, to, today, hidden]);
+  const items = useMemo(() => calendarItems(db, from, to, today).filter((i) => !hidden.includes(i.filter)), [db, from, to, today, hidden]);
   const byDay = useMemo(() => { const m = new Map<ISODate, CalItem[]>(); items.forEach((i) => m.set(i.date, [...(m.get(i.date) ?? []), i])); return m; }, [items]);
 
   const step = (dir: -1 | 1) => setAnchor((a) => (view === 'month' ? addMonths(a, dir) : view === 'week' ? addDays(a, 7 * dir) : addDays(a, 14 * dir)));
@@ -80,17 +84,22 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 mb-6" role="group" aria-label="Show categories">
-        {(Object.keys(CATEGORY_META) as Category[]).map((c) => {
-          const on = !hidden.includes(c);
+        {[...(Object.keys(CATEGORY_META) as Category[]).map((c) => ({ key: c as string, label: CATEGORY_META[c].label, color: CATEGORY_META[c].color })),
+          ...[...db.tags].sort((a, b) => a.sort - b.sort).map((t) => ({ key: `tag:${t.id}`, label: t.name, color: tagHex(t.color) }))].map((c) => {
+          const on = !hidden.includes(c.key);
           return (
-            <button key={c} aria-pressed={on} onClick={() => setHidden((h) => (on ? [...h, c] : h.filter((x) => x !== c)))}
-              className={`shrink-0 h-10 px-3 rounded-full border text-sm flex items-center gap-2 transition-colors ${on ? 'border-ink-500 text-fg' : 'border-ink-700 text-fg-3 line-through'}`}>
-              <span className="w-2 h-2 rounded-full" style={{ background: on ? CATEGORY_META[c].color : 'transparent', border: `1px solid ${CATEGORY_META[c].color}` }} />
-              {CATEGORY_META[c].label}
+            <button key={c.key} aria-pressed={on} onClick={() => setHidden((h) => (on ? [...h, c.key] : h.filter((x) => x !== c.key)))}
+              className={`shrink-0 h-10 px-3 rounded-full border text-sm flex items-center gap-2 transition-all duration-150 active:scale-95 ${on ? 'border-ink-500 text-fg' : 'border-ink-700 text-fg-3 line-through'}`}>
+              <span className="w-2 h-2 rounded-full transition-colors" style={{ background: on ? c.color : 'transparent', border: `1px solid ${c.color}` }} />
+              {c.label}
             </button>
           );
         })}
+        <button onClick={() => setNewTag(true)} className="shrink-0 h-10 px-3 rounded-full border border-dashed border-ink-500 text-sm text-fg-2 hover:text-fg flex items-center gap-1.5 transition-colors"><Icon name="plus" size={14} />Tag</button>
+        {db.tags.length > 0 && <button onClick={() => setTagsOpen(true)} className="shrink-0 icon-btn" aria-label="Manage tags"><Icon name="edit" size={16} /></button>}
       </div>
+      {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
+      {newTag && <TagEditor onClose={() => setNewTag(false)} />}
 
       <Legend />
 
@@ -112,7 +121,7 @@ function Legend() {
 
 function ItemRow({ i, compact = false }: { i: CalItem; compact?: boolean }) {
   const s = useSettings();
-  const color = CATEGORY_META[i.category].color;
+  const color = i.color;
   const draggable = i.kind !== 'routine';
   return (
     <button onClick={(e) => { e.stopPropagation(); openItem(i); }} draggable={draggable}
@@ -126,7 +135,7 @@ function ItemRow({ i, compact = false }: { i: CalItem; compact?: boolean }) {
       {!compact && i.start_time && <span className="meta w-12 shrink-0">{fmtTime(i.start_time, s.hour12)}</span>}
       <span className={`flex-1 min-w-0 truncate ${i.completed ? 'text-fg-3' : ''}`}>{compact && i.start_time ? <span className="text-fg-3">{fmtTime(i.start_time, s.hour12)} </span> : null}{i.title}</span>
       {!compact && i.progress && <span className="meta text-fg-3 shrink-0">{i.progress}</span>}
-      {!compact && <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-fg-3 shrink-0 hidden sm:inline">{i.completed ? 'Done' : i.kind === 'event' ? CATEGORY_META[i.category].label : i.kind}</span>}
+      {!compact && <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-fg-3 shrink-0 hidden sm:inline">{i.completed ? 'Done' : i.kind === 'event' ? i.label : i.kind}</span>}
     </button>
   );
 }
@@ -158,7 +167,7 @@ function MonthView({ anchor, byDay, today, selected, setSelected, desktop }: { a
                 className="w-full min-h-[44px] flex flex-col items-start p-1.5 text-left">
                 <span className={`font-mono text-xs w-6 h-6 grid place-items-center rounded-full ${d === today ? 'bg-acid text-acid-ink' : out ? 'text-fg-3/60' : 'text-fg-2'}`}>{Number(d.slice(8))}</span>
                 {!desktop && list.length > 0 && (
-                  <span className="flex flex-wrap gap-0.5 mt-1 px-0.5">{list.slice(0, 4).map((i) => <span key={i.key} className={`w-1.5 h-1.5 rounded-full ${i.completed ? 'bg-acid' : ''}`} style={i.completed ? {} : { border: `1px solid ${CATEGORY_META[i.category].color}` }} />)}</span>
+                  <span className="flex flex-wrap gap-0.5 mt-1 px-0.5">{list.slice(0, 4).map((i) => <span key={i.key} className={`w-1.5 h-1.5 rounded-full ${i.completed ? 'bg-acid' : ''}`} style={i.completed ? {} : { border: `1px solid ${i.color}` }} />)}</span>
                 )}
               </button>
               {desktop && (
@@ -212,7 +221,7 @@ function Agenda({ days, byDay, today, showEmpty = false }: { days: ISODate[]; by
   const shown = days.filter((d) => showEmpty || (byDay.get(d)?.length ?? 0) > 0 || d === today);
   if (!shown.length) return <p className="text-fg-2 py-6 border-t border-ink-700">Nothing scheduled in this period.</p>;
   return (
-    <div className="space-y-8">
+    <div className="stagger space-y-8">
       {shown.map((d) => {
         const list = byDay.get(d) ?? [];
         return (

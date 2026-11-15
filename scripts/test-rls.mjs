@@ -17,7 +17,7 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-await db.exec(readFileSync(new URL('../supabase/migrations/0001_init.sql', import.meta.url), 'utf8'));
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -60,6 +60,10 @@ ok((await as(B, `update goals set title = 'hacked' where id = $1 returning id`, 
 ok((await as(B, `delete from goals where id = $1 returning id`, [g.id])).rows.length === 0, 'user B cannot delete user A’s goal');
 await throws(() => as(B, `insert into goals (user_id, title) values ($1, 'planted')`, [A]), 'user B cannot insert rows owned by user A');
 await throws(() => as(B, `insert into milestones (goal_id, title) values ($1, 'sneaky')`, [g.id]), 'user B cannot attach a milestone to user A’s goal');
+await throws(() => as(B, `insert into events (title, date, goal_id) values ('x', '2026-11-20', $1)`, [g.id]), 'user B cannot link their event to user A’s goal');
+const aw = (await as(A, `insert into workout_templates (name) values ('A tpl') returning id`)).rows[0];
+await throws(() => as(B, `insert into workouts (name, template_id) values ('x', $1)`, [aw.id]), 'user B cannot link their workout to user A’s template');
+await throws(() => as(B, `select public.ep_same_owner()`), 'trigger functions cannot be called directly');
 await as(B, `insert into goals (title) values ('B goal')`);
 await throws(async () => { const res = await as(B, `update goals set user_id = $1 where title = 'B goal' returning user_id`, [A]); if (res.rows[0]?.user_id === A) return; throw new Error('blocked'); }, 'ownership cannot be transferred by update');
 ok((await as(B, `select * from goals`)).rows.length === 1, 'user B sees only their own goal');
@@ -71,6 +75,39 @@ await throws(() => as(null, `select * from goals`), 'signed-out (anon) requests 
 await as(A, `insert into milestones (goal_id, title, due_date) values ($1, 'Mixdown', '2026-11-30')`, [g.id]);
 await as(A, `delete from goals where id = $1`, [g.id]);
 ok((await as(A, `select count(*)::int n from milestones`)).rows[0].n === 0, 'deleting a goal removes its milestones');
+
+// Tags
+const tagA = (await as(A, `insert into tags (name, color) values ('Studio', 'violet') returning id`)).rows[0].id;
+ok(!!tagA, 'user A can create a tag');
+await throws(() => as(A, `insert into tags (name, color) values ('Bad', 'NOT A COLOUR')`), 'tag colour must be a palette key');
+await throws(() => as(B, `insert into events (title, date, tag_id) values ('x', '2026-11-20', $1)`, [tagA]), 'user B cannot use user A’s tag');
+ok((await as(B, `select * from tags`)).rows.length === 0, 'user B cannot see user A’s tags');
+
+// Write rate limit
+let blocked = false, done = 0;
+for (let i = 0; i < 260 && !blocked; i++) {
+  try { await as(A, `insert into tasks (title) values ('spam ' || $1)`, [String(i)]); done++; } catch (e) { blocked = /rate limit/.test(e.message); }
+}
+ok(blocked && done <= 240, `rapid writes are cut off by the rate limit (allowed ${done})`);
+await throws(() => as(A, `select * from private.write_counters`), 'rate-limit counters are not readable by users');
+await db.exec(`reset role; update private.write_counters set window_start = window_start - interval '2 minutes'`);
+await as(A, `insert into tasks (title) values ('after cool-down')`);
+ok(true, 'writes work again after the window passes');
+await as(A, `insert into settings (display_name) values ('first')`);
+await throws(() => as(A, `insert into settings (display_name) values ('second')`), 'quota: only one settings row per user');
+
+// Self-service erase / delete only ever touch the caller's own data
+const before = (await as(A, `select count(*)::int n from routines`)).rows[0].n;
+await as(B, `select public.erase_my_data()`);
+ok((await as(B, `select count(*)::int n from goals`)).rows[0].n === 0, 'erase_my_data clears the caller’s data');
+ok((await as(A, `select count(*)::int n from routines`)).rows[0].n === before && before > 0, 'erase_my_data leaves other users untouched');
+await throws(() => as(null, `select public.erase_my_data()`), 'signed-out callers cannot erase anything');
+await as(B, `insert into goals (title) values ('again')`);
+await as(B, `select public.delete_my_account()`);
+await db.exec('reset role');
+ok((await db.query(`select count(*)::int n from auth.users where id = '${B}'`)).rows[0].n === 0, 'delete_my_account removes the caller’s login');
+ok((await db.query(`select count(*)::int n from goals where user_id = '${B}'`)).rows[0].n === 0, 'deleting an account removes all its data');
+ok((await db.query(`select count(*)::int n from auth.users where id = '${A}'`)).rows[0].n === 1, 'other accounts are unaffected');
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll database checks passed');
 process.exit(failures ? 1 : 0);

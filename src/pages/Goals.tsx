@@ -3,7 +3,7 @@ import { store, uid, useDB, useSettings } from '../lib/store';
 import { addDays, addMonths, diffDays, fmtDate, rangeDays, startOfMonth, todayISO } from '../lib/dates';
 import { GOAL_CATEGORIES, goalProgress, nextAction } from '../lib/domain';
 import type { Goal } from '../lib/types';
-import { CheckButton, Empty, Icon, Progress, SampleTag, SectionHead, Segmented, confirmAction } from '../components/ui';
+import { CheckButton, Empty, Icon, Progress, SectionHead, Segmented, confirmAction } from '../components/ui';
 import { openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
 
@@ -58,7 +58,7 @@ function GoalRows({ goals }: { goals: Goal[] }) {
   if (!goals.length) return <Empty title="No active goals" body="Promote an idea, or start something new." action={<button className="btn-outline" onClick={() => openEditor({ type: 'goal', stage: 'active' })}>Add a goal</button>} />;
   const order = { high: 0, medium: 1, low: 2 };
   return (
-    <ul className="border-t border-ink-700">
+    <ul className="stagger border-t border-ink-700">
       {[...goals].sort((a, b) => order[a.priority] - order[b.priority] || (a.target_date ?? '9').localeCompare(b.target_date ?? '9')).map((g) => {
         const p = goalProgress(db, g);
         const na = nextAction(db, g);
@@ -68,7 +68,7 @@ function GoalRows({ goals }: { goals: Goal[] }) {
             <button onClick={() => navigate(`goals/${g.id}`)} className="w-full text-left grid grid-cols-1 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_160px] gap-x-8 gap-y-3 py-5 hover:bg-ink-900/60 -mx-3 px-3 rounded transition-colors">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em] text-fg-3 mb-1">
-                  {GOAL_CATEGORIES[g.category]}<span>·</span>{g.priority}{g.stage !== 'active' && <><span>·</span>{g.stage}</>}<SampleTag show={g.is_sample} />
+                  {GOAL_CATEGORIES[g.category]}<span>·</span>{g.priority}{g.stage !== 'active' && <><span>·</span>{g.stage}</>}
                 </p>
                 <p className="text-[19px] tracking-tight">{g.title}</p>
                 {na && g.stage === 'active' && <p className="text-sm text-fg-2 mt-1 truncate">Next: {na.text}</p>}
@@ -107,7 +107,7 @@ function Ideas({ ideas }: { ideas: Goal[] }) {
           {ideas.map((g) => (
             <li key={g.id} className="row flex-wrap py-4">
               <div className="flex-1 min-w-[200px]">
-                <p className="flex items-center gap-2"><span>{g.title}</span><SampleTag show={g.is_sample} /></p>
+                <p className="flex items-center gap-2"><span>{g.title}</span></p>
                 <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-fg-3 mt-0.5">{GOAL_CATEGORIES[g.category]}</p>
                 {g.description && <p className="text-sm text-fg-2 mt-1">{g.description}</p>}
               </div>
@@ -241,7 +241,7 @@ function GoalDetail({ id }: { id: string }) {
     <div className="anim-fade">
       <button className="btn-ghost -ml-3 mb-6" onClick={() => navigate('goals')}><Icon name="left" size={16} />Goals</button>
       <header className="mb-10">
-        <p className="flex flex-wrap items-center gap-2 label mb-3">{GOAL_CATEGORIES[g.category]} · {g.priority} priority · {g.stage}<SampleTag show={g.is_sample} /></p>
+        <p className="flex flex-wrap items-center gap-2 label mb-3">{GOAL_CATEGORIES[g.category]} · {g.priority} priority · {g.stage}</p>
         <h1 className="h-display max-w-[22ch]">{g.title}</h1>
         {g.description && <p className="text-fg-2 mt-4 max-w-2xl text-[17px] leading-relaxed">{g.description}</p>}
         <div className="flex flex-wrap gap-2 mt-6">

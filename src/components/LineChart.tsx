@@ -22,21 +22,21 @@ export default function LineChart({ data, unit, label, fmtX }: { data: SeriesPoi
         onMouseLeave={() => setHover(null)}>
         {ticks.map((t, i) => (
           <g key={i}>
-            <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="#26262A" strokeWidth={1} />
-            <text x={L - 8} y={y(t) + 4} textAnchor="end" fontSize={11} fill="#8C8C86" fontFamily="JetBrains Mono, monospace">{round(t)}</text>
+            <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="rgb(var(--ink-700))" strokeWidth={1} />
+            <text x={L - 8} y={y(t) + 4} textAnchor="end" fontSize={11} fill="rgb(var(--fg-3))" fontFamily="JetBrains Mono, monospace">{round(t)}</text>
           </g>
         ))}
-        <polyline fill="none" stroke="#B9DB6E" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" points={data.map((d, i) => `${x(i)},${y(d.value)}`).join(' ')} />
-        {h && <line x1={x(hover!)} x2={x(hover!)} y1={T} y2={H - B} stroke="#4A4A52" strokeWidth={1} />}
+        <polyline fill="none" stroke="rgb(var(--acid))" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" points={data.map((d, i) => `${x(i)},${y(d.value)}`).join(' ')} />
+        {h && <line x1={x(hover!)} x2={x(hover!)} y1={T} y2={H - B} stroke="rgb(var(--ink-500))" strokeWidth={1} />}
         {data.map((d, i) => (
           <g key={i}>
-            <circle cx={x(i)} cy={y(d.value)} r={hover === i ? 5 : 4} fill="#B9DB6E" stroke="#111113" strokeWidth={2} />
+            <circle cx={x(i)} cy={y(d.value)} r={hover === i ? 5 : 4} fill="rgb(var(--acid))" stroke="rgb(var(--ink-900))" strokeWidth={2} />
             <rect x={x(i) - 16} y={T} width={32} height={H - T - B} fill="transparent" tabIndex={0} aria-label={`${fmtX(d.date)}: ${d.value} ${unit}`}
               onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} />
           </g>
         ))}
         {[0, data.length - 1].filter((v, i, a) => a.indexOf(v) === i).map((i) => (
-          <text key={i} x={x(i)} y={H - 8} textAnchor={data.length === 1 ? 'middle' : i === 0 ? 'start' : 'end'} fontSize={11} fill="#8C8C86" fontFamily="JetBrains Mono, monospace">{fmtX(data[i].date)}</text>
+          <text key={i} x={x(i)} y={H - 8} textAnchor={data.length === 1 ? 'middle' : i === 0 ? 'start' : 'end'} fontSize={11} fill="rgb(var(--fg-3))" fontFamily="JetBrains Mono, monospace">{fmtX(data[i].date)}</text>
         ))}
       </svg>
       {h && (

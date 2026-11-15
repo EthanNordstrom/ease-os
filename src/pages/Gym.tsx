@@ -3,7 +3,7 @@ import { store, uid, useDB, useSettings } from '../lib/store';
 import { fmtDate, fmtTime, todayISO } from '../lib/dates';
 import { describeSet, exerciseSeries, previousEntry, repCountsFor, setVolume, workoutDate } from '../lib/domain';
 import type { Exercise, ExerciseKind, TemplateItem, Workout, WorkoutEntry, WorkoutSet, WorkoutTemplate } from '../lib/types';
-import { Empty, Field, Icon, SampleTag, Segmented, Sheet, confirmAction, num } from '../components/ui';
+import { Empty, Field, Icon, Segmented, Sheet, confirmAction, num } from '../components/ui';
 import { entriesFromTemplate, openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
 import LineChart from '../components/LineChart';
@@ -60,7 +60,7 @@ function Plan() {
   const Row = ({ w }: { w: Workout }) => (
     <li className="row py-3 flex-wrap">
       <button className="flex-1 min-w-[180px] text-left" onClick={() => navigate(`gym/session/${w.id}`)}>
-        <span className="flex items-center gap-2">{w.name}<SampleTag show={w.is_sample} /></span>
+        <span className="flex items-center gap-2">{w.name}</span>
         <span className="meta block mt-0.5">{w.planned_date ? fmtDate(w.planned_date, s.date_locale, { weekday: 'short', day: 'numeric', month: 'short' }) : 'Unscheduled'}{w.planned_time ? ` · ${fmtTime(w.planned_time, s.hour12)}` : ''} · {w.entries.length} exercises</span>
       </button>
       <button className="btn-ghost" onClick={() => openEditor({ type: 'workout', id: w.id })}>Reschedule</button>
@@ -78,7 +78,7 @@ function Plan() {
             <button className="btn-ghost" onClick={() => startNow(null, 'Workout')}>Start empty</button>
           </div>
         </div>
-        {!next.length ? <Empty title="Nothing planned" body="Plan a workout from a template — it’ll show on your calendar." /> : <ul className="border-t border-ink-700">{next.map((w) => <Row key={w.id} w={w} />)}</ul>}
+        {!next.length ? <Empty title="Nothing planned" body="Plan a workout from a template — it’ll show on your calendar." /> : <ul className="stagger border-t border-ink-700">{next.map((w) => <Row key={w.id} w={w} />)}</ul>}
       </section>
       {overdue.length > 0 && (
         <section>
@@ -158,7 +158,7 @@ function Session({ id }: { id: string }) {
         <p className="label mb-2 flex items-center gap-2">
           {w.status === 'in_progress' ? `In progress · ${elapsed} min` : w.status === 'completed' ? `Completed · ${elapsed} min` : 'Planned'}
           {w.planned_date && ` · ${fmtDate(w.planned_date, s.date_locale, { weekday: 'short', day: 'numeric', month: 'short' })}`}
-          <SampleTag show={w.is_sample} />
+          
         </p>
         <h1 className="text-[32px] md:text-[40px] tracking-[-0.03em] font-medium">{w.name}</h1>
         <div className="flex flex-wrap gap-2 mt-5">
@@ -337,7 +337,7 @@ function Templates() {
           {db.workout_templates.map((t) => (
             <li key={t.id} className="row py-4 flex-wrap">
               <button className="flex-1 min-w-[200px] text-left" onClick={() => setEditing(t.id)}>
-                <span className="flex items-center gap-2 text-[17px]">{t.name}<SampleTag show={t.is_sample} /></span>
+                <span className="flex items-center gap-2 text-[17px]">{t.name}</span>
                 <span className="block text-sm text-fg-2 mt-0.5">{t.items.map((i) => exName(i.exercise_id)).join(' · ') || 'No exercises'}</span>
               </button>
               <button className="btn-ghost" onClick={() => openEditor({ type: 'workout' })}>Plan</button>
@@ -464,7 +464,7 @@ function History() {
   return (
     <div>
       <p className="meta text-fg-3 mb-3">Volume = kg × reps of ticked working sets on weighted exercises.</p>
-      <ul className="border-t border-ink-700">
+      <ul className="stagger border-t border-ink-700">
         {done.map((w) => {
           const vol = w.entries.reduce((a, e) => a + (db.exercises.find((x) => x.id === e.exercise_id)?.kind === 'weighted' ? e.sets.reduce((b, st) => b + setVolume(st), 0) : 0), 0);
           const sets = w.entries.flatMap((e) => e.sets).filter((x) => x.done).length;
@@ -472,7 +472,7 @@ function History() {
             <li key={w.id}>
               <button className="row w-full text-left py-3" onClick={() => navigate(`gym/session/${w.id}`)}>
                 <span className="w-24 meta shrink-0">{fmtDate(workoutDate(w), s.date_locale, { day: 'numeric', month: 'short' })}</span>
-                <span className="flex-1 min-w-0 truncate">{w.name} <SampleTag show={w.is_sample} /></span>
+                <span className="flex-1 min-w-0 truncate">{w.name} </span>
                 <span className="meta text-right shrink-0">{sets} sets{vol ? <span className="block text-fg-3">{Math.round(vol).toLocaleString(s.date_locale)} kg vol.</span> : null}</span>
               </button>
             </li>

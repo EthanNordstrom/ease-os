@@ -1,18 +1,22 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { CloudAdapter, LocalAdapter, cloudConfigured, supabase } from './lib/adapters';
 import { store, useStore, useSettings } from './lib/store';
 import { navigate, useRoute } from './lib/router';
-import { ConfirmHost, Icon, SaveIndicator, Sheet, SyncIssues, Toasts } from './components/ui';
+import { ConfirmHost, Field, Icon, SaveIndicator, Sheet, SyncIssues, ThemeToggle, Toasts } from './components/ui';
+import Welcome from './pages/Welcome';
+import { BRAND } from './lib/brand';
 import { EditorHost, openEditor } from './components/editors';
 import Today from './pages/Today';
-import Routines from './pages/Routines';
-import CalendarPage from './pages/Calendar';
-import Goals from './pages/Goals';
-import Gym from './pages/Gym';
-import Review from './pages/Review';
-import SettingsPage from './pages/Settings';
-import Auth from './pages/Auth';
+import { confirmAction } from './components/ui';
+// Everything except Today loads on demand, so the first screen appears fast.
+const Routines = lazy(() => import('./pages/Routines'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Gym = lazy(() => import('./pages/Gym'));
+const Review = lazy(() => import('./pages/Review'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const Auth = lazy(() => import('./pages/Auth'));
 
 const PRIMARY = [
   { id: 'today', label: 'Today', icon: 'today' },
@@ -28,11 +32,12 @@ const SECONDARY = [
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(cloudConfigured ? undefined : null);
+  const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
     if (!supabase) { store.start(new LocalAdapter(), null); return; }
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((e, s) => { setSession(s); if (e === 'PASSWORD_RECOVERY') setRecovery(true); });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -44,12 +49,68 @@ export default function App() {
   }, [userId]);
 
   if (cloudConfigured && session === undefined) return <Splash />;
-  if (cloudConfigured && !session) return <Auth />;
-  return <Shell />;
+  if (cloudConfigured && !session) return <Suspense fallback={<Splash />}><Auth /></Suspense>;
+  return <><Shell />{recovery && <NewPassword onDone={() => setRecovery(false)} />}</>;
 }
 
-function Splash({ text = 'Loading' }: { text?: string }) {
-  return <div className="min-h-[100dvh] grid place-items-center"><span className="label">{text}…</span></div>;
+/** Shown after opening a password-reset email link. */
+function NewPassword({ onDone }: { onDone: () => void }) {
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (pw.length < 8) return setMsg('Use at least 8 characters.');
+    setBusy(true);
+    const { error } = await supabase!.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setMsg(error.message); else { store.toast('Password updated'); onDone(); }
+  };
+  return (
+    <Sheet open onClose={onDone} title="Choose a new password"
+      footer={<><button className="btn-ghost" onClick={onDone}>Later</button><button className="btn-primary" disabled={busy} onClick={save}>Save password</button></>}>
+      <Field label="New password"><input className="input" type="password" autoComplete="new-password" minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} /></Field>
+      {msg && <p className="text-sm text-bad mt-3" role="alert">{msg}</p>}
+    </Sheet>
+  );
+}
+
+/** Branded loader: a slowly drawing ring with the app mark. */
+function Splash() {
+  return (
+    <div className="min-h-[100dvh] grid place-items-center" role="status" aria-label="Loading">
+      <div className="flex flex-col items-center gap-5 anim-rise">
+        <svg width="44" height="44" viewBox="0 0 44 44" className="anim-spin" style={{ animationDuration: '1.4s' }} aria-hidden>
+          <circle cx="22" cy="22" r="19" fill="none" stroke="rgb(var(--ink-700))" strokeWidth="2" />
+          <path d="M22 3a19 19 0 0 1 19 19" fill="none" stroke="rgb(var(--acid))" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <span className="label">{BRAND.name}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Placeholder layout while a section loads. */
+function PageSkeleton() {
+  return (
+    <div aria-hidden className="space-y-6 pt-1">
+      <div className="skeleton h-3 w-28" />
+      <div className="skeleton h-10 w-2/3 max-w-md" />
+      <div className="space-y-3 pt-6">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 w-full" style={{ opacity: 1 - i * 0.15 }} />)}</div>
+    </div>
+  );
+}
+
+async function signOutEverywhereHere() {
+  const st = store.state;
+  if (st.pending && !(await confirmAction({ title: 'Sign out with unsaved changes?', body: `${st.pending} change(s) haven’t reached the server yet. They stay on this device and upload when you sign back in.`, confirm: 'Sign out' }))) return;
+  if (!(await confirmAction({ title: 'Sign out?', body: 'Your data stays safe in your account. Sign back in on any device.', confirm: 'Sign out' }))) return;
+  try {
+    const { data } = await supabase!.auth.getUser();
+    if (data.user) localStorage.removeItem(`ep.cache.cloud.${data.user.id}`);
+    localStorage.removeItem('ep.rest');
+  } catch { /* ignore */ }
+  history.replaceState(null, '', location.pathname);
+  await supabase!.auth.signOut();
 }
 
 function Shell() {
@@ -71,6 +132,7 @@ function Shell() {
     );
     return <Splash />;
   }
+  if (st.db.settings.length === 0) return <><Welcome /><Toasts /></>;
 
   const page = route[0];
   let content: ReactNode;
@@ -78,7 +140,7 @@ function Shell() {
     case 'calendar': content = <CalendarPage />; break;
     case 'goals': content = <Goals id={route[1]} />; break;
     case 'gym': content = <Gym sub={route[1]} id={route[2]} />; break;
-    case 'routines': content = <Routines />; break;
+    case 'routines': content = <Routines startNew={route[1] === 'new'} />; break;
     case 'review': content = <Review />; break;
     case 'settings': content = <SettingsPage />; break;
     default: content = <Today />;
@@ -101,8 +163,13 @@ function Shell() {
         </nav>
         <div className="mt-auto space-y-4 px-2">
           <button className="btn-outline w-full" onClick={() => openEditor({ type: 'quickAdd' })}><Icon name="plus" size={18} />Add</button>
-          <SaveIndicator />
+          <div className="flex items-center justify-between"><SaveIndicator /><ThemeToggle className="-mr-2" /></div>
           {st.mode === 'local' && <DemoBadge />}
+          {st.mode === 'cloud' && (
+            <button onClick={signOutEverywhereHere} className="w-full flex items-center gap-3 h-10 px-2 -mx-2 rounded text-[15px] text-fg-2 hover:text-fg hover:bg-ink-900 transition-colors">
+              <Icon name="logout" size={18} />Sign out
+            </button>
+          )}
         </div>
       </aside>
 
@@ -114,6 +181,7 @@ function Shell() {
           </button>
           <div className="flex items-center gap-1">
             <SaveIndicator compact />
+            <ThemeToggle />
             <button className="icon-btn" aria-label="More: routines, review, settings" onClick={() => setMenu(true)}><Icon name="menu" /></button>
           </div>
         </div>
@@ -124,7 +192,9 @@ function Shell() {
         <div className="max-w-[1180px] mx-auto">
           {st.mode === 'local' && <div className="md:hidden mb-4"><DemoBadge /></div>}
           <SyncIssues />
-          {content}
+          <Suspense fallback={<PageSkeleton />}>
+            <div key={page || 'today'} className="anim-page">{content}</div>
+          </Suspense>
         </div>
       </main>
 
@@ -142,7 +212,7 @@ function Shell() {
                 className={`flex flex-col items-center justify-center gap-1 transition-colors ${active ? 'text-fg' : 'text-fg-3'}`}>
                 <Icon name={n.icon} size={22} />
                 <span className="font-mono text-[10px] uppercase tracking-[0.08em]">{n.label}</span>
-                <span className={`h-0.5 w-5 rounded-full ${active ? 'bg-acid' : 'bg-transparent'}`} />
+                <span className={`h-0.5 rounded-full transition-all duration-500 ${active ? 'w-5 bg-acid' : 'w-0 bg-acid/0'}`} style={{ transitionTimingFunction: 'var(--ease-out)' }} />
               </button>
             );
           })}
@@ -156,6 +226,11 @@ function Shell() {
               <Icon name={n.icon} className="text-fg-2" /><span className="flex-1 text-[16px]">{n.label}</span><Icon name="right" className="text-fg-3" />
             </button>
           ))}
+          {st.mode === 'cloud' && (
+            <button className="w-full row text-left" onClick={() => { setMenu(false); signOutEverywhereHere(); }}>
+              <Icon name="logout" className="text-fg-2" /><span className="flex-1 text-[16px]">Sign out</span>
+            </button>
+          )}
         </div>
       </Sheet>
 

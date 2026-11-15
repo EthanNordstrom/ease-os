@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import type { Adapter } from './adapters';
 import { applyCascade, cascadeChildren } from './cascade';
 import { emptyDB, type DB, type Settings, type TableName, type Tables } from './types';
+import { BRAND } from './brand';
 
 export const uid = () =>
   (crypto as any).randomUUID?.() ??
@@ -39,12 +40,14 @@ export interface State {
   online: boolean;
 }
 
+const deviceTZ = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
+const deviceLocale = () => (typeof navigator !== 'undefined' && navigator.language) || 'en-AU';
 const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'version' | 'created_at' | 'updated_at' | 'is_sample'> = {
-  display_name: 'Ethan',
-  app_title: 'Ethan / Personal',
-  timezone: 'Australia/Brisbane',
+  display_name: '',
+  app_title: BRAND.title,
+  timezone: deviceTZ(),
   week_start: 1,
-  date_locale: 'en-AU',
+  date_locale: deviceLocale(),
   hour12: false,
   default_rest_seconds: 120,
 };
@@ -52,7 +55,7 @@ const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'version' | 'created_at' | 'update
 const LABELS: Record<TableName, string> = {
   settings: 'settings', routines: 'routine', routine_completions: 'routine check-off', events: 'event', goals: 'goal',
   milestones: 'milestone', tasks: 'task', exercises: 'exercise', workout_templates: 'workout template', workouts: 'workout',
-  quotes: 'quote', reviews: 'weekly review',
+  quotes: 'quote', reviews: 'weekly review', tags: 'tag',
 };
 
 class Store {
@@ -135,10 +138,15 @@ class Store {
   }
 
   private async ensureSettings() {
-    if (this.state.db.settings.length) return;
-    const { seedStarter } = await import('./sample');
-    seedStarter(this);
+    // New accounts start empty and go through first-run setup.
+    // Test builds only (VITE_TEST_SEED=1) fill in example data for automated checks.
+    if (import.meta.env.VITE_TEST_SEED === '1' && !this.state.db.settings.length) {
+      const { seedStarter } = await import('./testSeed');
+      seedStarter(this);
+    }
   }
+
+  get needsSetup() { return this.state.ready && this.state.db.settings.length === 0; }
 
   /* ---------- reads ---------- */
 
@@ -251,6 +259,11 @@ class Store {
           this.set({ online: navigator.onLine ? true : false });
           this.scheduleRetry();
           break;
+        } else if (res.kind === 'busy') {
+          // The server asked us to slow down; keep the change and try again shortly.
+          this.busyUntil = Date.now() + 20000;
+          this.scheduleRetry(20000);
+          break;
         } else if (res.kind === 'conflict') {
           this.outbox = this.outbox.filter((o) => o !== op);
           this.addConflict(op, res.current);
@@ -274,9 +287,10 @@ class Store {
     return (this.state.db[table] as any[]).find((r) => r.id === id)?.version ?? 0;
   }
 
-  private scheduleRetry() {
+  private busyUntil = 0;
+  private scheduleRetry(ms = 8000) {
     if (this.retryTimer) return;
-    this.retryTimer = window.setTimeout(() => { this.retryTimer = null; this.flush(); }, 8000);
+    this.retryTimer = window.setTimeout(() => { this.retryTimer = null; this.flush(); }, ms);
   }
 
   private reconcile(op: Op, row: Row | null) {
@@ -356,6 +370,7 @@ class Store {
     let status: SaveStatus = 'saved';
     if (failed.length) status = 'error';
     else if (s.conflicts.length) status = 'conflict';
+    else if (pending && Date.now() < this.busyUntil) status = 'saving';
     else if (pending && (this.state.mode === 'cloud' && (!navigator.onLine || this.retryTimer))) status = 'offline';
     else if (pending) status = 'saving';
     else if (this.state.mode === 'cloud' && !navigator.onLine) status = 'offline';
@@ -393,7 +408,7 @@ class Store {
   }
 
   exportJSON() {
-    return JSON.stringify({ exported_at: new Date().toISOString(), app: 'ethan-personal', format_version: 1, data: this.state.db }, null, 2);
+    return JSON.stringify({ exported_at: new Date().toISOString(), app: 'ease-os', format_version: 1, data: this.state.db }, null, 2);
   }
 }
 

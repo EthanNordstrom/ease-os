@@ -2,6 +2,7 @@
 Browser timezone is deliberately America/Los_Angeles: the app must still use Brisbane dates."""
 import json, sys
 from playwright.sync_api import sync_playwright, expect
+import csp
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:4173/'
 results = []
@@ -14,9 +15,11 @@ def localdb(pg):
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, timezone_id='America/Los_Angeles', has_touch=True, is_mobile=True)
+    csp.apply(ctx, BASE)
     pg = ctx.new_page()
     errors = []
     pg.on('pageerror', lambda e: errors.append(str(e)))
+    pg.on('console', lambda m: 'Content Security Policy' in m.text and errors.append(m.text))
     pg.goto(BASE); pg.wait_for_timeout(1000)
     today = pg.evaluate("new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Brisbane'}).format(new Date())")
     tomorrow = pg.evaluate(f"(()=>{{const d=new Date('{today}T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10)}})()")
@@ -135,6 +138,30 @@ with sync_playwright() as p:
     pg.get_by_label('Set 1 weight in kilograms').first.fill('87.5'); pg.wait_for_timeout(300)
     w = next(x for x in localdb(pg)['workouts'] if x['id'] == w[0]['id'])
     check(w['entries'][0]['sets'][0]['weight'] == 87.5, 'past workouts can be edited')
+
+    # Tags: create one with a colour, use it on an event, filter by it
+    pg.goto(BASE + '#/calendar'); pg.wait_for_timeout(400)
+    pg.locator('main').get_by_role('button', name='Tag', exact=True).click()
+    pg.get_by_label('Name').fill('Studio')
+    pg.get_by_role('radio', name='Teal').click()
+    pg.get_by_role('button', name='Create tag').click(); pg.wait_for_timeout(300)
+    tags = localdb(pg)['tags']
+    check(len(tags) == 1 and tags[0]['color'] == 'teal', 'a tag can be created with a chosen colour')
+    pg.get_by_role('button', name='Event', exact=True).click()
+    pg.get_by_label('Title').fill('Mixdown night')
+    pg.get_by_role('radio', name='Studio').click()
+    pg.get_by_role('button', name='Add event', exact=True).click(); pg.wait_for_timeout(300)
+    ev = next(e for e in localdb(pg)['events'] if e['title'] == 'Mixdown night')
+    check(ev.get('tag_id') == tags[0]['id'], 'an event can use the tag')
+    check(pg.get_by_role('button', name='Mixdown night').count() >= 1, 'tagged event shows on the calendar')
+    pg.locator('main').get_by_role('button', name='Studio', exact=True).click(); pg.wait_for_timeout(200)
+    check(pg.get_by_role('button', name='Mixdown night').count() == 0, 'tag chip filters tagged events out and back in')
+    pg.locator('main').get_by_role('button', name='Studio', exact=True).click()
+    pg.get_by_role('button', name='Manage tags').click()
+    pg.locator('[role=dialog]').get_by_role('button', name='Studio').click()
+    pg.get_by_role('radio', name='Rose').click(); pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+    check(localdb(pg)['tags'][0]['color'] == 'rose', 'tag colour can be changed later')
+    pg.keyboard.press('Escape')
 
     # 5. Quotes
     pg.goto(BASE + '#/today'); pg.wait_for_timeout(300)

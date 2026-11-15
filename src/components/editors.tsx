@@ -6,6 +6,8 @@ import type { CalEvent, Category, Goal, ISODate, Recurrence, WorkoutEntry } from
 import { CheckButton, Field, Icon, Segmented, Sheet, Toggle, WeekdayPicker, confirmAction, num } from './ui';
 import { uid } from '../lib/store';
 import { navigate } from '../lib/router';
+import { tagHex } from '../lib/palette';
+import { TagEditor } from './Tags';
 
 export type EditorReq =
   | { type: 'quickAdd' }
@@ -90,7 +92,9 @@ function EventForm({ id, date, occurrenceDate, goalId }: { id?: string; date?: I
     until: existing?.recurrence?.until ?? '',
     goal_id: existing?.goal_id ?? goalId ?? '',
     workout_id: existing?.workout_id ?? '',
+    tag_id: existing?.tag_id ?? '',
   });
+  const [newTag, setNewTag] = useState(false);
   const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }));
   const editingOne = isRecurring && scope === 'one' && !!occurrenceDate;
   const timeError = !f.all_day && f.end_time && f.start_time && f.end_time <= f.start_time ? 'End time must be after the start time.' : '';
@@ -112,6 +116,8 @@ function EventForm({ id, date, occurrenceDate, goalId }: { id?: string; date?: I
     const data: Partial<CalEvent> = {
       title: f.title.trim(), category: f.category, all_day: f.all_day, start_time: f.all_day ? null : f.start_time, end_time: f.all_day ? null : f.end_time,
       notes: f.notes, recurrence, goal_id: f.goal_id || null, workout_id: f.workout_id || null,
+      // Only send tag_id when tags are in use, so the app keeps working before migration 0004 is applied.
+      ...(f.tag_id || existing?.tag_id ? { tag_id: f.tag_id || null } : {}),
     };
     if (existing) {
       // Editing the whole series from an occurrence keeps the series' own start date unless the date was changed.
@@ -151,16 +157,33 @@ function EventForm({ id, date, occurrenceDate, goalId }: { id?: string; date?: I
         )}
         <Field label="Title"><input className="input" value={f.title} onChange={(e) => set({ title: e.target.value })} placeholder="e.g. Studio session" data-autofocus /></Field>
         {!editingOne && (
-          <Field label="Category">
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(CATEGORY_META) as Category[]).map((c) => (
-                <button key={c} onClick={() => set({ category: c })} aria-pressed={f.category === c}
-                  className={`h-10 px-3 rounded border text-sm flex items-center gap-2 transition-colors ${f.category === c ? 'border-fg-2 text-fg bg-ink-800' : 'border-ink-600 text-fg-2 hover:text-fg'}`}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: CATEGORY_META[c].color }} />{CATEGORY_META[c].label}
-                </button>
-              ))}
+          <div>
+            <span className="label block mb-1.5">Category or tag</span>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Category or tag">
+              {(Object.keys(CATEGORY_META) as Category[]).map((c) => {
+                const on = !f.tag_id && f.category === c;
+                return (
+                  <button key={c} role="radio" aria-checked={on} onClick={() => set({ category: c, tag_id: '' })}
+                    className={`h-10 px-3 rounded-full border text-sm flex items-center gap-2 transition-all duration-150 active:scale-95 ${on ? 'border-fg-2 text-fg bg-ink-800' : 'border-ink-600 text-fg-2 hover:text-fg'}`}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: CATEGORY_META[c].color }} />{CATEGORY_META[c].label}
+                  </button>
+                );
+              })}
+              {db.tags.map((t) => {
+                const on = f.tag_id === t.id;
+                return (
+                  <button key={t.id} role="radio" aria-checked={on} onClick={() => set({ tag_id: t.id })}
+                    className={`h-10 px-3 rounded-full border text-sm flex items-center gap-2 transition-all duration-150 active:scale-95 ${on ? 'border-fg-2 text-fg bg-ink-800' : 'border-ink-600 text-fg-2 hover:text-fg'}`}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: tagHex(t.color) }} />{t.name}
+                  </button>
+                );
+              })}
+              <button onClick={() => setNewTag(true)} className="h-10 px-3 rounded-full border border-dashed border-ink-500 text-sm text-fg-2 hover:text-fg flex items-center gap-1.5 transition-colors">
+                <Icon name="plus" size={14} />New tag
+              </button>
             </div>
-          </Field>
+            {newTag && <TagEditor onClose={() => setNewTag(false)} onSaved={(t) => set({ tag_id: t.id })} />}
+          </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label={isRecurring && !editingOne ? 'Starts' : 'Date'}><input type="date" className="input" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>

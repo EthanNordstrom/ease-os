@@ -1,4 +1,5 @@
 import { addMonths, diffDays, rangeDays, startOfWeek, weekday } from './dates';
+import { tagHex } from './palette';
 import type { CalEvent, Category, DB, Exercise, Goal, ISODate, Routine, Workout, WorkoutSet } from './types';
 
 /* ---------------- Routines ---------------- */
@@ -71,10 +72,14 @@ export type ItemKind = 'event' | 'routine' | 'workout' | 'goal' | 'milestone';
 export interface CalItem {
   key: string; kind: ItemKind; category: Category; title: string; date: ISODate; all_day: boolean;
   start_time: string | null; end_time: string | null; completed: boolean; progress?: string; refId: string; occ?: Occurrence; sample?: boolean;
+  /** Filter key ('personal'… or 'tag:<id>'), colour and label shown for this item. */
+  filter: string; color: string; label: string;
 }
 
 export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate): CalItem[] {
-  const items: CalItem[] = [];
+  const raw: Omit<CalItem, 'filter' | 'color' | 'label'>[] = [];
+  const tags = new Map((db.tags ?? []).map((t) => [t.id, t]));
+  const items = { push: (i: Omit<CalItem, 'filter' | 'color' | 'label'>) => raw.push(i) };
   for (const o of expandEvents(db.events, from, to)) {
     items.push({ key: `e:${o.event.id}:${o.originalDate}`, kind: 'event', category: o.event.category, title: o.title, date: o.date,
       all_day: o.all_day, start_time: o.all_day ? null : o.start_time, end_time: o.all_day ? null : o.end_time, completed: false, refId: o.event.id, occ: o, sample: o.event.is_sample });
@@ -109,21 +114,27 @@ export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate
       items.push({ key: `m:${m.id}`, kind: 'milestone', category: 'goals', title: m.title, date: m.due_date, all_day: true,
         start_time: null, end_time: null, completed: m.done, refId: m.id, sample: m.is_sample });
   }
-  return items.sort((a, b) => a.date.localeCompare(b.date) || Number(b.all_day) - Number(a.all_day) || (a.start_time ?? '').localeCompare(b.start_time ?? ''));
+  const out: CalItem[] = raw.map((i) => {
+    const tag = i.kind === 'event' && i.occ?.event.tag_id ? tags.get(i.occ.event.tag_id) : undefined;
+    return tag ? { ...i, filter: `tag:${tag.id}`, color: tagHex(tag.color), label: tag.name }
+      : { ...i, filter: i.category, color: CATEGORY_META[i.category].color, label: CATEGORY_META[i.category].label };
+  });
+  return out.sort((a, b) => a.date.localeCompare(b.date) || Number(b.all_day) - Number(a.all_day) || (a.start_time ?? '').localeCompare(b.start_time ?? ''));
 }
 
 export const CATEGORY_META: Record<Category, { label: string; color: string }> = {
-  personal: { label: 'Personal', color: '#9FB3C8' },
-  routine: { label: 'Routine', color: '#B9DB6E' },
-  gym: { label: 'Gym', color: '#D9B77A' },
-  music: { label: 'Music', color: '#B9A3E0' },
-  goals: { label: 'Goals', color: '#E3E3DC' },
+  // Mid-tone hues readable on both the light and dark backgrounds.
+  personal: { label: 'Personal', color: tagHex('slate') },
+  routine: { label: 'Routine', color: 'rgb(var(--acid))' },
+  gym: { label: 'Gym', color: tagHex('amber') },
+  music: { label: 'Music', color: tagHex('violet') },
+  goals: { label: 'Goals', color: tagHex('stone') },
 };
 
 /* ---------------- Goals ---------------- */
 
 export const GOAL_CATEGORIES: Record<Goal['category'], string> = {
-  health: 'Health & fitness', appearance: 'Appearance & self-care', music: 'Music / EASE', career: 'Career & learning',
+  health: 'Health & fitness', appearance: 'Appearance & self-care', music: 'Music & creativity', career: 'Career & learning',
   money: 'Money & organisation', personal: 'Personal life',
 };
 

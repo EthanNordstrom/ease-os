@@ -1,5 +1,6 @@
 # Ethan / Personal
 
+
 A calm personal workspace for routines, goals, training and creative momentum.
 Works on iPhone (installable to the Home Screen) and desktop, with sync through Supabase.
 

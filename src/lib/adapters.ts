@@ -145,6 +145,8 @@ export class LocalAdapter implements Adapter {
     if (list.some((r) => r.id === rec.id)) return { ok: true, row: list.find((r) => r.id === rec.id)! };
     if (t === 'routine_completions' && list.some((r) => r.routine_id === rec.routine_id && r.item_id === rec.item_id && r.date === rec.date))
       return { ok: false, kind: 'duplicate' };
+    if (t === 'bill_payments' && list.some((r) => r.bill_id === rec.bill_id && r.due_date === rec.due_date)) return { ok: false, kind: 'duplicate' };
+    if (t === 'savings_transfers' && rec.payday && list.some((r) => r.goal_id === rec.goal_id && r.payday === rec.payday)) return { ok: false, kind: 'duplicate' };
     const now = new Date().toISOString();
     const row = { ...rec, version: 1, created_at: rec.created_at ?? now, updated_at: now };
     list.push(row);

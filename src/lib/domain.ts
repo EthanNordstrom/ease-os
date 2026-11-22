@@ -1,5 +1,6 @@
 import { addMonths, diffDays, rangeDays, startOfWeek, weekday } from './dates';
 import { tagHex } from './palette';
+import { fmtMoney, isPaid, moneySettings, paydayPlan, repeatDates, savedSoFar } from './money';
 import type { CalEvent, Category, DB, Exercise, Goal, ISODate, Routine, Workout, WorkoutSet } from './types';
 
 /* ---------------- Routines ---------------- */
@@ -84,7 +85,7 @@ export function expandEvents(events: CalEvent[], from: ISODate, to: ISODate): Oc
 
 /* ---------------- Unified calendar items ---------------- */
 
-export type ItemKind = 'event' | 'routine' | 'workout' | 'goal' | 'milestone';
+export type ItemKind = 'event' | 'routine' | 'workout' | 'goal' | 'milestone' | 'bill' | 'payday' | 'saving';
 export interface CalItem {
   key: string; kind: ItemKind; category: Category; title: string; date: ISODate; all_day: boolean;
   start_time: string | null; end_time: string | null; completed: boolean; progress?: string; refId: string; occ?: Occurrence; sample?: boolean;
@@ -130,6 +131,24 @@ export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate
       items.push({ key: `m:${m.id}`, kind: 'milestone', category: 'goals', title: m.title, date: m.due_date, all_day: true,
         start_time: null, end_time: null, completed: m.done, refId: m.id, sample: m.is_sample });
   }
+  // Money: bill due dates, paydays (with what to move) and savings deadlines
+  const m = moneySettings(db);
+  const cur = (n: number) => fmtMoney(n, m.currency, db.settings[0]?.date_locale ?? 'en-AU');
+  for (const b of db.bills.filter((x) => x.active)) {
+    for (const d of repeatDates(b.due_date, b.frequency, from, to))
+      items.push({ key: `b:${b.id}:${d}`, kind: 'bill', category: 'money', title: `${b.name} · ${cur(Number(b.amount))}`, date: d, all_day: true,
+        start_time: null, end_time: null, completed: isPaid(db, b.id, d) || (b.autopay && d <= today), refId: b.id });
+  }
+  if (m.next_payday && m.pay_frequency !== 'none' && (db.bills.length || db.savings_goals.length)) {
+    const plan = paydayPlan(db, today);
+    for (const d of repeatDates(m.next_payday, m.pay_frequency, from, to))
+      items.push({ key: `p:${d}`, kind: 'payday', category: 'money', title: plan.total > 0 ? `Payday · move ${cur(plan.total)}` : 'Payday', date: d, all_day: true,
+        start_time: null, end_time: null, completed: d < today, refId: 'payday' });
+  }
+  for (const g of db.savings_goals.filter((x) => !x.archived && x.target_date && x.target_date >= from && x.target_date <= to))
+    items.push({ key: `s:${g.id}`, kind: 'saving', category: 'money', title: `Savings goal · ${g.name}`, date: g.target_date!, all_day: true,
+      start_time: null, end_time: null, completed: savedSoFar(db, g) >= Number(g.target), refId: g.id });
+
   const out: CalItem[] = raw.map((i) => {
     const tag = i.kind === 'event' && i.occ?.event.tag_id ? tags.get(i.occ.event.tag_id) : undefined;
     return tag ? { ...i, filter: `tag:${tag.id}`, color: tagHex(tag.color), label: tag.name }
@@ -145,6 +164,7 @@ export const CATEGORY_META: Record<Category, { label: string; color: string }> =
   gym: { label: 'Gym', color: tagHex('amber') },
   music: { label: 'Music', color: tagHex('violet') },
   goals: { label: 'Goals', color: tagHex('stone') },
+  money: { label: 'Money', color: tagHex('green') },
 };
 
 /* ---------------- Goals ---------------- */

@@ -57,6 +57,7 @@ const LABELS: Record<TableName, string> = {
   milestones: 'milestone', tasks: 'task', exercises: 'exercise', workout_templates: 'workout template', workouts: 'workout',
   quotes: 'quote', reviews: 'weekly review', tags: 'tag',
   nutrition_goals: 'calorie goal', foods: 'saved food', food_logs: 'food entry', meal_plans: 'day plan', shopping_items: 'shopping item', weigh_ins: 'weigh-in',
+  money_settings: 'pay details', bills: 'bill', bill_payments: 'bill payment', savings_goals: 'savings goal', savings_transfers: 'savings transfer',
 };
 
 class Store {

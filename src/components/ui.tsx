@@ -42,6 +42,7 @@ const paths: Record<string, string> = {
   moon: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
   food: 'M7 3v7a2 2 0 0 0 2 2M5 3v5M9 3v5M7 12v9M17 21V3c-2.2 1-3.5 3.8-3.5 7.5V13H17',
   cart: 'M3 4h2.2l2.3 11h10.3L20 7.5H6.4M9.5 20h.01M17 20h.01',
+  money: 'M12 3v18M16.5 7.5C15.7 6.4 14.1 6 12 6c-2.4 0-4 .9-4 2.6 0 4 8.5 1.8 8.5 5.8 0 1.7-1.7 2.6-4.5 2.6-2.2 0-3.9-.5-4.8-1.8',
   logout: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10',
 };
 export function Icon({ name, size = 20, className = '', strokeWidth = 1.5 }: { name: keyof typeof paths | string; size?: number; className?: string; strokeWidth?: number }) {

@@ -23,6 +23,7 @@ export function openItem(i: CalItem) {
   else if (i.kind === 'routine') openEditor({ type: 'routineDay', routineId: i.refId, date: i.date });
   else if (i.kind === 'workout') navigate(`gym/session/${i.refId}`);
   else if (i.kind === 'goal') navigate(`goals/${i.refId}`);
+  else if (i.kind === 'bill' || i.kind === 'payday' || i.kind === 'saving') navigate('money');
   else openEditor({ type: 'milestone', id: i.refId });
 }
 
@@ -124,7 +125,7 @@ function Legend() {
 function ItemRow({ i, compact = false }: { i: CalItem; compact?: boolean }) {
   const s = useSettings();
   const color = i.color;
-  const draggable = i.kind !== 'routine';
+  const draggable = ['event', 'workout', 'goal', 'milestone'].includes(i.kind);
   return (
     <button onClick={(e) => { e.stopPropagation(); openItem(i); }} draggable={draggable}
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', i.key); (window as any).__dragItem = i; }}

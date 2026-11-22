@@ -257,7 +257,7 @@ function GoalDetail({ id }: { id: string }) {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-x-16 gap-y-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-x-12 xl:gap-x-24 2xl:gap-x-32 gap-y-12">
         <div className="space-y-12 min-w-0">
           <section>
             <SectionHead label="Next action" title="The very next step" />

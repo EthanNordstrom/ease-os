@@ -52,7 +52,8 @@ input[type='date'], input[type='time'] { color-scheme: var(--scheme); min-height
   .h-display { @apply text-[34px] leading-[1.05] tracking-[-0.03em] font-medium md:text-[44px]; }
   .h-section { @apply text-lg font-medium tracking-[-0.01em]; }
   .divider { @apply border-t border-ink-700; }
-  .surface { @apply bg-ink-900 border border-ink-700 rounded-lg; }
+  .surface { @apply bg-ink-900 border border-ink-700 rounded-lg transition-[border-color,transform] duration-300; }
+  @media (hover: hover) { .surface:hover { @apply border-ink-500; } }
   .input {
     @apply w-full min-h-[44px] rounded bg-ink-850 border border-ink-600 px-3 py-2 text-fg placeholder:text-fg-3
       transition-colors duration-150 hover:border-ink-500 focus:border-acid focus-visible:outline-none;

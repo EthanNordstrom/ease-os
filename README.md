@@ -58,6 +58,12 @@ Works on iPhone, Android and desktop. Install it to your home screen, use it in 
 - 7-day chart and average
 - Weigh-ins with a 7-day average and week-on-week change
 
+**Money**
+- Add your pay schedule, then your bills (rent, phone, subscriptions…) — they appear on the calendar under a Money filter
+- A payday plan shows exactly how much to move each pay: bills set aside plus each savings goal, and what's left
+- Savings goals for things you want to buy: set a price and a date and it works out the amount per pay, or set an amount and it works out when you'll get there
+- Optional auto-log records planned savings on each payday (never twice), reminders on Today, mark bills paid in one tap
+
 **Shopping list**
 - Add items from anywhere; they're sorted into aisles automatically
 - Recipes add their ingredients, with combined amounts and no duplicates
@@ -92,7 +98,7 @@ You need free accounts on **GitHub**, **Supabase** and **Cloudflare**.
 ### 1. Database (Supabase)
 1. Create a project at supabase.com (pick the region closest to you).
 2. Open **SQL Editor → New query**. Run each file in `supabase/migrations` **in order**, one at a time:
-   `0001` → `0002` → `0003` → `0004` → `0005` → `0006`. Each should say *Success*.
+   `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007`. Each should say *Success*.
 3. **Authentication → URL Configuration**: set *Site URL* to your app's address (you'll get it in step 3) and add the same address under *Redirect URLs*.
 4. **Project Settings → API Keys**: copy the **Project URL** and the **publishable** key.
    Never use the *secret* key anywhere.

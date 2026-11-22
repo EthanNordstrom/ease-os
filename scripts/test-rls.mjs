@@ -17,7 +17,7 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql', '0007_money.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -113,6 +113,26 @@ ok(mine.settings.length === 1 && mine.settings[0].user_id === A && mine.routines
 const theirs = (await as(B, `select public.get_my_data() d`)).rows[0].d;
 ok(theirs.goals.every((g) => g.user_id === B) && !theirs.tasks.some((t) => t.user_id === A), 'get_my_data never includes another user’s rows');
 await throws(() => as(null, `select public.get_my_data()`), 'signed-out callers cannot load data');
+
+// Money
+await as(A, `insert into money_settings (currency, pay_frequency, next_payday, take_home) values ('AUD', 'fortnightly', '2026-11-27', 2400)`);
+const bill = (await as(A, `insert into bills (name, amount, frequency, due_date, category) values ('Rent', 450, 'weekly', '2026-11-24', 'housing') returning id`)).rows[0].id;
+await as(A, `insert into bill_payments (bill_id, due_date, amount) values ($1, '2026-11-24', 450)`, [bill]);
+await throws(() => as(A, `insert into bill_payments (bill_id, due_date, amount) values ($1, '2026-11-24', 450)`, [bill]), 'a bill occurrence can only be marked paid once');
+await throws(() => as(A, `insert into bills (name, amount, frequency, due_date) values ('x', -5, 'monthly', '2026-12-01')`), 'bill amounts cannot be negative');
+await throws(() => as(A, `insert into bills (name, amount, frequency, due_date) values ('x', 5, 'hourly', '2026-12-01')`), 'bill frequency must be a known value');
+const sg = (await as(A, `insert into savings_goals (name, target, target_date) values ('Holiday', 3000, '2027-06-01') returning id`)).rows[0].id;
+await as(A, `insert into savings_transfers (goal_id, date, amount) values ($1, '2026-11-23', 150)`, [sg]);
+await as(A, `insert into savings_transfers (goal_id, date, amount, payday) values ($1, '2026-11-24', 50, '2026-11-24')`, [sg]);
+await throws(() => as(A, `insert into savings_transfers (goal_id, date, amount, payday) values ($1, '2026-11-24', 50, '2026-11-24')`, [sg]), 'a payday can only be auto-logged once per goal');
+await throws(() => as(A, `insert into savings_transfers (goal_id, date, amount) values ($1, '2026-11-23', 0)`, [sg]), 'zero-dollar transfers are rejected');
+ok((await as(B, `select * from bills`)).rows.length === 0 && (await as(B, `select * from savings_goals`)).rows.length === 0 && (await as(B, `select * from money_settings`)).rows.length === 0, 'user B cannot see user A’s money data');
+await throws(() => as(B, `insert into bill_payments (bill_id, due_date) values ($1, '2026-12-01')`, [bill]), 'user B cannot mark user A’s bill as paid');
+await throws(() => as(B, `insert into savings_transfers (goal_id, date, amount) values ($1, '2026-12-01', 10)`, [sg]), 'user B cannot add to user A’s savings goal');
+await as(A, `insert into events (title, date, category) values ('Tax return', '2026-12-01', 'money')`);
+ok(true, 'events can use the Money category');
+const md = (await as(A, `select public.get_my_data() d`)).rows[0].d;
+ok(md.bills.length === 1 && md.savings_transfers.length === 2 && md.money_settings.length === 1, 'money data loads in the one-request load');
 
 // Write rate limit
 let blocked = false, done = 0;

@@ -9,6 +9,8 @@ export function applyCascade(db: DB, table: TableName, id: string): DB {
     next.events = next.events.map((e) => (e.goal_id === id ? { ...e, goal_id: null } : e));
   }
   if (table === 'routines') next.routine_completions = next.routine_completions.filter((c) => c.routine_id !== id);
+  if (table === 'bills') next.bill_payments = next.bill_payments.filter((p) => p.bill_id !== id);
+  if (table === 'savings_goals') next.savings_transfers = next.savings_transfers.filter((t) => t.goal_id !== id);
   if (table === 'foods') next.food_logs = next.food_logs.map((l) => (l.food_id === id ? { ...l, food_id: null } : l));
   if (table === 'tags') next.events = next.events.map((e) => (e.tag_id === id ? { ...e, tag_id: null } : e));
   if (table === 'workouts') next.events = next.events.map((e) => (e.workout_id === id ? { ...e, workout_id: null } : e));
@@ -22,5 +24,7 @@ export function cascadeChildren(db: DB, table: TableName, id: string): { table: 
     { table: 'tasks', rows: db.tasks.filter((t) => t.goal_id === id) },
   ];
   if (table === 'routines') return [{ table: 'routine_completions', rows: db.routine_completions.filter((c) => c.routine_id === id) }];
+  if (table === 'bills') return [{ table: 'bill_payments', rows: db.bill_payments.filter((p) => p.bill_id === id) }];
+  if (table === 'savings_goals') return [{ table: 'savings_transfers', rows: db.savings_transfers.filter((t) => t.goal_id === id) }];
   return [];
 }

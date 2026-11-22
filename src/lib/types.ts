@@ -45,7 +45,7 @@ export interface RoutineCompletion extends Base {
   completed_at: string;
 }
 
-export type Category = 'personal' | 'routine' | 'gym' | 'music' | 'goals';
+export type Category = 'personal' | 'routine' | 'gym' | 'music' | 'goals' | 'money';
 export interface Recurrence { freq: 'daily' | 'weekly' | 'monthly'; interval: number; weekdays: number[]; until: ISODate | null }
 export interface OccurrenceOverride { cancelled?: boolean; date?: ISODate; title?: string; start_time?: HHMM | null; end_time?: HHMM | null; all_day?: boolean; notes?: string }
 export interface CalEvent extends Base {
@@ -127,6 +127,14 @@ export interface MealPlan extends Base { name: string; items: PlanItem[] }
 export type Aisle = 'produce' | 'meat' | 'dairy' | 'bakery' | 'pantry' | 'frozen' | 'drinks' | 'household' | 'other';
 export interface ShoppingItem extends Base { name: string; amount: string; aisle: Aisle; done: boolean; source: string; sort: number }
 export interface WeighIn extends Base { date: ISODate; kg: number }
+export type PayFrequency = 'weekly' | 'fortnightly' | 'monthly' | 'none';
+export type BillFrequency = 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | 'once';
+export type BillCategory = 'housing' | 'utilities' | 'phone' | 'insurance' | 'subscriptions' | 'transport' | 'health' | 'debt' | 'other';
+export interface MoneySettings extends Base { currency: string; pay_frequency: PayFrequency; next_payday: ISODate | null; take_home: number | null; auto_log: boolean; last_auto_payday: ISODate | null }
+export interface Bill extends Base { name: string; amount: number; frequency: BillFrequency; due_date: ISODate; category: BillCategory; autopay: boolean; active: boolean; notes: string }
+export interface BillPayment extends Base { bill_id: string; due_date: ISODate; amount: number; paid_at: string }
+export interface SavingsGoal extends Base { name: string; target: number; start_amount: number; target_date: ISODate | null; kind: 'saving' | 'purchase'; link: string; per_pay: number | null; purchased_at: string | null; archived: boolean; notes: string }
+export interface SavingsTransfer extends Base { goal_id: string; date: ISODate; amount: number; note: string; payday: ISODate | null }
 export interface Tag extends Base { name: string; color: string; sort: number }
 export interface Review extends Base { week_start: ISODate; went_well: string; got_in_way: string; change_next: string; priorities: string[] }
 
@@ -150,12 +158,18 @@ export interface Tables {
   meal_plans: MealPlan;
   shopping_items: ShoppingItem;
   weigh_ins: WeighIn;
+  money_settings: MoneySettings;
+  bills: Bill;
+  bill_payments: BillPayment;
+  savings_goals: SavingsGoal;
+  savings_transfers: SavingsTransfer;
 }
 export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   'settings', 'routines', 'routine_completions', 'events', 'goals', 'milestones', 'tasks',
   'exercises', 'workout_templates', 'workouts', 'quotes', 'reviews', 'tags',
   'nutrition_goals', 'foods', 'food_logs', 'meal_plans', 'shopping_items', 'weigh_ins',
+  'money_settings', 'bills', 'bill_payments', 'savings_goals', 'savings_transfers',
 ];
 export type DB = { [K in TableName]: Tables[K][] };
 export const emptyDB = (): DB => Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as DB;

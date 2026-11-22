@@ -15,8 +15,8 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
-const TABLES = new Set(['settings', 'routines', 'routine_completions', 'goals', 'milestones', 'tasks', 'exercises', 'workout_templates', 'workouts', 'events', 'quotes', 'reviews', 'tags', 'nutrition_goals', 'foods', 'food_logs', 'meal_plans', 'shopping_items', 'weigh_ins']);
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql', '0007_money.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+const TABLES = new Set(['settings', 'routines', 'routine_completions', 'goals', 'milestones', 'tasks', 'exercises', 'workout_templates', 'workouts', 'events', 'quotes', 'reviews', 'tags', 'nutrition_goals', 'foods', 'food_logs', 'meal_plans', 'shopping_items', 'weigh_ins', 'money_settings', 'bills', 'bill_payments', 'savings_goals', 'savings_transfers']);
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const token = (u) => { const exp = Math.floor(Date.now() / 1000) + 3600; return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp })}.sig`; };

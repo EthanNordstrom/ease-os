@@ -6,7 +6,8 @@ import { navigate, useRoute } from './lib/router';
 import { ConfirmHost, Field, Icon, SaveIndicator, Sheet, SyncIssues, ThemeToggle, Toasts } from './components/ui';
 import Welcome from './pages/Welcome';
 import Intro, { resetIntro, shouldShowIntro } from './components/Intro';
-import { nowParts } from './lib/dates';
+import { addDays, nowParts, todayISO } from './lib/dates';
+import { moneySettings, pendingAutoTransfers, repeatDates } from './lib/money';
 import { applyRemotePrefs } from './lib/prefs';
 import { BRAND } from './lib/brand';
 import { EditorHost, openEditor } from './components/editors';
@@ -19,6 +20,7 @@ const Goals = lazy(() => import('./pages/Goals'));
 const Gym = lazy(() => import('./pages/Gym'));
 const Review = lazy(() => import('./pages/Review'));
 const FoodPage = lazy(() => import('./pages/Food'));
+const Money = lazy(() => import('./pages/Money'));
 const Shopping = lazy(() => import('./pages/Shopping'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const Auth = lazy(() => import('./pages/Auth'));
@@ -31,6 +33,7 @@ const PRIMARY = [
   { id: 'goals', label: 'Goals', icon: 'goals' },
 ];
 const SECONDARY = [
+  { id: 'money', label: 'Money', icon: 'money' },
   { id: 'shopping', label: 'Shopping list', icon: 'cart' },
   { id: 'routines', label: 'Routines', icon: 'routine' },
   { id: 'review', label: 'Weekly review', icon: 'review' },
@@ -130,6 +133,20 @@ function Shell() {
   useEffect(() => { document.title = s.app_title; }, [s.app_title]);
   useEffect(() => { if (st.ready && st.db.settings.length) applyRemotePrefs(s); }, [st.ready, s.theme, s.accent]);
 
+  // Auto-log planned savings for paydays that have passed (never twice: unique per goal + payday).
+  useEffect(() => {
+    if (!st.ready || !st.db.settings.length) return;
+    const m = moneySettings(st.db);
+    if (!m.auto_log || !m.next_payday || m.pay_frequency === 'none' || !st.db.money_settings.length) return;
+    const today = todayISO(s.timezone);
+    const pending = pendingAutoTransfers(st.db, today);
+    for (const p of pending) store.insert('savings_transfers', { goal_id: p.goal.id, date: p.payday, amount: p.amount, note: 'Auto', payday: p.payday });
+    const since = m.last_auto_payday ? addDays(m.last_auto_payday, 1) : addDays(today, -1);
+    const days = repeatDates(m.next_payday, m.pay_frequency, since, today);
+    const latest = days[days.length - 1];
+    if (latest && latest !== m.last_auto_payday) store.update('money_settings', st.db.money_settings[0].id, { last_auto_payday: latest });
+  }, [st.ready, st.db.money_settings, st.db.savings_goals, s.timezone]);
+
   if (!st.ready) {
     if (st.loadError) return (
       <div className="min-h-[100dvh] grid place-items-center p-6">
@@ -153,6 +170,7 @@ function Shell() {
     case 'routines': content = <Routines startNew={route[1] === 'new'} />; break;
     case 'review': content = <Review />; break;
     case 'food': content = <FoodPage sub={route[1]} />; break;
+    case 'money': content = <Money sub={route[1]} />; break;
     case 'shopping': content = <Shopping />; break;
     case 'settings': content = <SettingsPage />; break;
     default: content = <Today />;
@@ -199,9 +217,9 @@ function Shell() {
         </div>
       </header>
 
-      <main id="main" className="flex-1 min-w-0 px-4 md:px-10 lg:px-14 pt-6 md:pt-12 pb-[calc(110px+var(--safe-bottom))] md:pb-16"
+      <main id="main" className="flex-1 min-w-0 px-4 md:px-10 lg:px-14 2xl:px-20 pt-6 md:pt-12 pb-[calc(110px+var(--safe-bottom))] md:pb-16"
         style={{ paddingLeft: 'max(16px, var(--safe-left))', paddingRight: 'max(16px, var(--safe-right))' }}>
-        <div className="max-w-[1180px] mx-auto">
+        <div className="max-w-[1180px] xl:max-w-[1360px] 2xl:max-w-[1640px] mx-auto">
           {st.mode === 'local' && <div className="md:hidden mb-4"><DemoBadge /></div>}
           <SyncIssues />
           <Suspense fallback={<PageSkeleton />}>

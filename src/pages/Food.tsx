@@ -54,7 +54,7 @@ function Day() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-x-16 gap-y-12">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-x-12 xl:gap-x-24 2xl:gap-x-32 gap-y-12">
       <div className="min-w-0 space-y-10">
         <div className="flex flex-wrap items-center gap-1">
           <button className="icon-btn border border-ink-600" aria-label="Previous day" onClick={() => setDate(addDays(date, -1))}><Icon name="left" size={18} /></button>
@@ -320,7 +320,7 @@ function Weight() {
     store.toast('Weigh-in saved');
   };
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-x-16 gap-y-10">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-x-12 xl:gap-x-24 2xl:gap-x-32 gap-y-10">
       <div className="space-y-8">
         <form onSubmit={(e) => { e.preventDefault(); save(); }} className="flex items-end gap-2 max-w-sm">
           <Field label="Today’s weight (kg)" className="flex-1"><input className="input" type="number" inputMode="decimal" step="0.1" value={kg} onChange={(e) => setKg(e.target.value)} placeholder="e.g. 72.4" /></Field>

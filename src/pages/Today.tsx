@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { store, useDB, useSettings } from '../lib/store';
-import { addDays, fmtDate, fmtTime, nowParts, relativeDay, timeToMin } from '../lib/dates';
+import { addDays, diffDays, fmtDate, fmtTime, nowParts, relativeDay, timeToMin } from '../lib/dates';
 import { calendarItems, goalProgress, nextAction, pickCurrentRoutine, routineProgress, routineScheduledOn } from '../lib/domain';
 import type { Routine } from '../lib/types';
 import { CheckButton, Empty, Icon, Progress, SectionHead, confirmAction } from '../components/ui';
@@ -10,6 +10,8 @@ import QuoteCard from '../components/QuoteCard';
 import { startWorkout } from '../lib/workouts';
 import { dayTotals, fmtKcal, guessAisle, r0 } from '../lib/food';
 import { setUi } from '../lib/prefs';
+import { dueSoon, fmtMoney, moneySettings, nextPayday, paydayPlan } from '../lib/money';
+import { markBillPaid } from '../lib/moneyActions';
 
 export default function Today() {
   const db = useDB();
@@ -25,7 +27,7 @@ export default function Today() {
       </header>
 
       <GettingStarted />
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-x-16 gap-y-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-x-12 xl:gap-x-24 2xl:gap-x-32 gap-y-12">
         <div className="space-y-12 min-w-0">
           <RoutinesToday today={today} nowMin={timeToMin(now)} />
           <Priorities today={today} />
@@ -35,6 +37,7 @@ export default function Today() {
           <QuoteCard today={today} compact />
           <FoodToday today={today} />
           <WorkoutToday today={today} />
+          <MoneyToday today={today} />
           <ShoppingPeek />
           <UpNext today={today} now={now} />
         </div>
@@ -52,6 +55,7 @@ function GettingStarted() {
     { done: db.goals.some((g) => g.stage !== 'idea'), label: 'Add a goal you’re working toward', go: () => openEditor({ type: 'goal', stage: 'active' }) },
     { done: db.workout_templates.length > 0 || db.workouts.length > 0, label: 'Set up a workout', go: () => navigate('gym/templates') },
     { done: db.nutrition_goals.length > 0, label: 'Set a daily calorie target', go: () => navigate('food') },
+    { done: db.bills.length > 0 || db.savings_goals.length > 0, label: 'Add your bills or a savings goal', go: () => navigate('money') },
     { done: db.events.length > 0, label: 'Put something on your calendar', go: () => openEditor({ type: 'event' }) },
   ];
   if (hidden || steps.every((x) => x.done)) return null;
@@ -386,6 +390,37 @@ function UpNext({ today, now }: { today: string; now: string }) {
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function MoneyToday({ today }: { today: string }) {
+  const db = useDB();
+  const s = useSettings();
+  if (!db.bills.length && !db.savings_goals.length) return null;
+  const m = moneySettings(db);
+  const fm = (n: number) => fmtMoney(n, m.currency, s.date_locale, true);
+  const plan = paydayPlan(db, today);
+  const pay = nextPayday(m, today);
+  const soon = dueSoon(db, today, 3).filter((d) => !d.paid);
+  const payNear = pay && diffDays(pay, today) <= 3 && plan.total > 0;
+  if (!soon.length && !payNear) return (
+    <section aria-label="Money"><SectionHead label="Money" title="All calm" action={<button className="btn-ghost -mr-3 text-sm" onClick={() => navigate('money')}>Open</button>} /></section>
+  );
+  return (
+    <section aria-label="Money">
+      <SectionHead label="Money" title="Coming up" action={<button className="btn-ghost -mr-3 text-sm" onClick={() => navigate('money')}>Open</button>} />
+      <ul className="border-t border-ink-700">
+        {payNear && <li className="row"><span className="flex-1 min-w-0"><span className="block">Payday · move {fm(plan.total)}</span><span className="meta text-fg-3">{relativeDay(pay!, today, s.date_locale)} · bills and savings</span></span></li>}
+        {soon.map((d) => (
+          <li key={d.bill.id + d.due} className="row">
+            {d.bill.autopay ? <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-fg-3 w-11 text-center">Auto</span>
+              : <CheckButton checked={false} label={`Paid ${d.bill.name}`} onClick={() => markBillPaid(d.bill, d.due, true)} />}
+            <span className="flex-1 min-w-0"><span className="block truncate">{d.bill.name}</span><span className={`meta ${d.overdue ? 'text-warn' : 'text-fg-3'}`}>{d.overdue ? 'Overdue · ' : ''}{relativeDay(d.due, today, s.date_locale)}</span></span>
+            <span className="tabular-nums">{fm(Number(d.bill.amount))}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -8,6 +8,10 @@ import { uid } from '../lib/store';
 import { navigate } from '../lib/router';
 import { tagHex } from '../lib/palette';
 import { TagEditor } from './Tags';
+import { AddFoodSheet } from './FoodSheets';
+import { slotForHour } from '../lib/food';
+import { nowParts } from '../lib/dates';
+import { guessAisle } from '../lib/food';
 
 export type EditorReq =
   | { type: 'quickAdd' }
@@ -16,7 +20,9 @@ export type EditorReq =
   | { type: 'task'; id?: string; goalId?: string; focusToday?: boolean }
   | { type: 'workout'; id?: string; date?: ISODate }
   | { type: 'milestone'; id?: string; goalId?: string }
-  | { type: 'routineDay'; routineId: string; date: ISODate };
+  | { type: 'routineDay'; routineId: string; date: ISODate }
+  | { type: 'food'; date?: ISODate }
+  | { type: 'shopping' };
 
 let current: EditorReq | null = null;
 const ls = new Set<() => void>();
@@ -35,6 +41,8 @@ export function EditorHost() {
     case 'workout': return <PlanWorkoutForm key={key} {...req} />;
     case 'milestone': return <MilestoneForm key={key} {...req} />;
     case 'routineDay': return <RoutineDay key={key} {...req} />;
+    case 'food': return <QuickFood key={key} date={req.date} />;
+    case 'shopping': return <QuickShopping key={key} />;
   }
 }
 
@@ -44,6 +52,8 @@ function QuickAdd() {
     { t: { type: 'task', focusToday: true }, label: 'Task', hint: 'A to-do, optionally one of today’s priorities', icon: 'check' },
     { t: { type: 'event' }, label: 'Event', hint: 'Something on the calendar', icon: 'calendar' },
     { t: { type: 'goal', stage: 'active' }, label: 'Goal', hint: 'Something to work toward, or an idea', icon: 'goals' },
+    { t: { type: 'food' }, label: 'Food', hint: 'Log something you ate', icon: 'food' },
+    { t: { type: 'shopping' }, label: 'Shopping item', hint: 'Add to your shopping list', icon: 'cart' },
     { t: { type: 'workout' }, label: 'Workout', hint: 'Plan a gym session on a date', icon: 'gym' },
   ];
   return (
@@ -496,6 +506,35 @@ function RoutineDay({ routineId, date }: { routineId: string; date: ISODate }) {
         ))}
       </ul>
       {date !== today && <button className="btn-ghost mt-3 -ml-3" onClick={() => openEditor({ type: 'routineDay', routineId, date: addDays(date, 1) })}>Next day <Icon name="right" size={16} /></button>}
+    </Sheet>
+  );
+}
+
+/* ---------------- Quick food / shopping ---------------- */
+function QuickFood({ date }: { date?: ISODate }) {
+  const s = useSettings();
+  const now = nowParts(s.timezone);
+  return <AddFoodSheet date={date ?? now.date} slot={slotForHour(now.hour)} onClose={closeEditor} />;
+}
+
+function QuickShopping() {
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const save = (again: boolean) => {
+    const n = name.trim();
+    if (!n) return;
+    const db = store.state.db;
+    if (db.shopping_items.some((x) => !x.done && x.name.toLowerCase() === n.toLowerCase())) store.toast(`${n} is already on your list`);
+    else { store.insert('shopping_items', { name: n, amount: amount.trim(), aisle: guessAisle(n), done: false, source: '', sort: 0 }); store.toast(`Added ${n}`); }
+    if (again) { setName(''); setAmount(''); } else closeEditor();
+  };
+  return (
+    <Sheet open onClose={closeEditor} title="Add to shopping list"
+      footer={<><button className="btn-ghost" onClick={closeEditor}>Done</button><button className="btn-outline" disabled={!name.trim()} onClick={() => save(true)}>Add another</button><button className="btn-primary" disabled={!name.trim()} onClick={() => save(false)}>Add</button></>}>
+      <div className="space-y-4">
+        <Field label="Item"><input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save(true)} placeholder="e.g. Rolled oats" /></Field>
+        <Field label="Amount (optional)"><input className="input" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 1 kg" /></Field>
+      </div>
     </Sheet>
   );
 }

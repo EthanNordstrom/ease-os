@@ -142,7 +142,7 @@ with sync_playwright() as p:
     # Tags: create one with a colour, use it on an event, filter by it
     pg.goto(BASE + '#/calendar'); pg.wait_for_timeout(400)
     pg.locator('main').get_by_role('button', name='Tag', exact=True).click()
-    pg.get_by_label('Name').fill('Studio')
+    pg.get_by_label('Name', exact=True).fill('Studio')
     pg.get_by_role('radio', name='Teal').click()
     pg.get_by_role('button', name='Create tag').click(); pg.wait_for_timeout(300)
     tags = localdb(pg)['tags']
@@ -163,6 +163,81 @@ with sync_playwright() as p:
     check(localdb(pg)['tags'][0]['color'] == 'rose', 'tag colour can be changed later')
     pg.keyboard.press('Escape')
 
+    # Food: target, saved meal, quick add, servings, recipe → shopping list, day plan, weigh-in
+    pg.goto(BASE + '#/food'); pg.wait_for_timeout(600)
+    pg.get_by_role('button', name='Set daily target').click()
+    pg.get_by_label('Calories per day').fill('3500'); pg.get_by_label('Protein g', exact=True).fill('180')
+    pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+    check(pg.get_by_text('of 3,500 kcal').first.is_visible(), 'calorie target can be set and is shown')
+    pg.goto(BASE + '#/food/foods'); pg.wait_for_timeout(500)
+    pg.get_by_role('button', name='New', exact=True).click()
+    pg.get_by_role('radio', name='Meal').click()
+    pg.get_by_label('Name', exact=True).fill('Peanut butter banana oats'); pg.get_by_label('Calories', exact=True).fill('800'); pg.get_by_label('Protein g', exact=True).fill('27')
+    pg.get_by_role('switch', name='Favourite (shown first)').click()
+    pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+    check(any(f['name'] == 'Peanut butter banana oats' for f in localdb(pg)['foods']), 'a meal can be saved to My foods')
+    pg.goto(BASE + '#/food'); pg.wait_for_timeout(500)
+    pg.get_by_role('button', name='Add to Breakfast').click(); pg.wait_for_timeout(300)
+    pg.locator('[role=dialog]').get_by_role('button', name='Peanut butter banana oats').click()
+    pg.get_by_role('button', name='Add 800 kcal').click(); pg.wait_for_timeout(300)
+    check(pg.get_by_text('2,700').first.is_visible(), 'logging a saved meal updates calories left (2,700 to go)')
+    pg.get_by_role('button', name='Add to Snacks').click(); pg.wait_for_timeout(300)
+    pg.get_by_role('radio', name='Quick add').click()
+    pg.get_by_label('What did you eat?').fill('Chocolate banana shake'); pg.get_by_label('Calories', exact=True).fill('695'); pg.get_by_label('Protein g', exact=True).fill('26')
+    pg.locator('[role=dialog]').get_by_role('button', name='Add', exact=True).click(); pg.wait_for_timeout(300)
+    logs = localdb(pg)['food_logs']
+    check(len(logs) == 2 and sum(l['calories'] for l in logs) == 1495, 'quick add logs calories without saving a food')
+    pg.get_by_role('button', name='Chocolate banana shake').click()
+    pg.get_by_label('Servings', exact=True).fill('2'); pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+    shake = next(l for l in localdb(pg)['food_logs'] if l['name'] == 'Chocolate banana shake')
+    check(shake['calories'] == 1390 and shake['protein'] == 52, 'changing servings rescales calories and protein')
+    check(pg.get_by_text('2,190').first.is_visible() and pg.get_by_text('Peanut butter banana oats').count() >= 1, 'day totals and favourites update')
+
+    pg.goto(BASE + '#/food/foods'); pg.wait_for_timeout(400)
+    pg.get_by_role('button', name='New', exact=True).click()
+    pg.get_by_role('radio', name='Recipe').click()
+    pg.get_by_label('Name', exact=True).fill('Beef taco pasta'); pg.get_by_label('Calories', exact=True).fill('970'); pg.get_by_label('Protein g', exact=True).fill('60')
+    pg.get_by_label('Serves (per batch)').fill('4')
+    for n, a in [('Lean beef mince', '600 g'), ('Pasta spirals', '500 g'), ('Tomato passata', '600 g')]:
+        pg.get_by_label('New ingredient').fill(n); pg.get_by_label('Amount', exact=True).fill(a); pg.locator('[role=dialog] form').get_by_role('button', name='Add').click()
+    pg.get_by_role('button', name='Add ingredients to shopping list').click()
+    pg.get_by_role('button', name='More batches').click()
+    pg.get_by_role('button', name='Add 3 items').click(); pg.wait_for_timeout(300)
+    items = {i['name']: i for i in localdb(pg)['shopping_items']}
+    check(items.get('Lean beef mince', {}).get('amount') == '1200 g' and items['Lean beef mince']['aisle'] == 'meat' and items['Tomato passata']['aisle'] == 'pantry',
+          'recipe ingredients go to the shopping list, scaled for 2 batches and sorted into aisles')
+    pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+
+    pg.goto(BASE + '#/food/plans'); pg.wait_for_timeout(400)
+    pg.get_by_role('button', name='New day plan').click()
+    pg.locator('[role=dialog] select').nth(0).select_option(label='Peanut butter banana oats')
+    pg.locator('[role=dialog]').get_by_role('button', name='Add', exact=True).click()
+    pg.locator('[role=dialog] select').nth(0).select_option(label='Beef taco pasta'); pg.locator('[role=dialog] select').nth(1).select_option('dinner')
+    pg.locator('[role=dialog]').get_by_role('button', name='Add', exact=True).click()
+    check(pg.get_by_text('Total: 1,770 kcal').is_visible(), 'day plan totals its foods')
+    pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+    before = len(localdb(pg)['food_logs'])
+    pg.get_by_role('button', name='Log for today').click(); pg.wait_for_timeout(300)
+    check(len(localdb(pg)['food_logs']) == before + 2, 'a day plan logs all its foods in one tap')
+
+    pg.goto(BASE + '#/food/weight'); pg.wait_for_timeout(400)
+    pg.get_by_label('Today’s weight (kg)').fill('72.4'); pg.get_by_role('button', name='Save', exact=True).click(); pg.wait_for_timeout(300)
+    check(len(localdb(pg)['weigh_ins']) == 1 and pg.get_by_text('72.4').first.is_visible(), 'weigh-in saved and shown in the 7-day average')
+
+    # Shopping from Today
+    pg.goto(BASE + '#/today'); pg.wait_for_timeout(500)
+    check(pg.get_by_text('Today’s fuel').is_visible(), 'Today shows the food summary')
+    pg.get_by_label('Add to shopping list').fill('Bananas'); pg.locator('form').filter(has=pg.get_by_label('Add to shopping list')).get_by_role('button', name='Add').click(); pg.wait_for_timeout(300)
+    bananas = next(i for i in localdb(pg)['shopping_items'] if i['name'] == 'Bananas')
+    check(bananas['aisle'] == 'produce', 'items added on Today land in the right aisle')
+    pg.get_by_role('button', name='Got Bananas').click(); pg.wait_for_timeout(200)
+    pg.get_by_role('button', name='Undo').last.click(); pg.wait_for_timeout(300)
+    check(not next(i for i in localdb(pg)['shopping_items'] if i['name'] == 'Bananas')['done'], 'ticking off from Today can be undone')
+    pg.goto(BASE + '#/shopping'); pg.wait_for_timeout(500)
+    pg.get_by_role('button', name='Got Bananas').click(); pg.wait_for_timeout(300)
+    pg.get_by_role('button', name='Clear ticked').click(); pg.wait_for_timeout(300)
+    check(not any(i['name'] == 'Bananas' for i in localdb(pg)['shopping_items']), 'ticked items can be cleared from the shopping list')
+
     # 5. Quotes
     pg.goto(BASE + '#/today'); pg.wait_for_timeout(300)
     q1 = pg.locator('blockquote').inner_text()
@@ -182,7 +257,7 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/goals'); pg.wait_for_timeout(300)
     pg.get_by_role('radio', name='Ideas 2').click()
     pg.get_by_role('button', name='Delete idea “Play a set in Melbourne”').click(); pg.wait_for_timeout(200)
-    pg.get_by_role('button', name='Undo').click(); pg.wait_for_timeout(300)
+    pg.get_by_role('button', name='Undo').last.click(); pg.wait_for_timeout(300)
     check(any(g['title'] == 'Play a set in Melbourne' for g in localdb(pg)['goals']), 'deleting an idea can be undone')
     # promote idea without re-entry
     pg.get_by_role('button', name='Promote').first.click()
@@ -190,14 +265,14 @@ with sync_playwright() as p:
     check(any(g['stage'] == 'active' and g['title'] in ('Play a set in Melbourne', 'Learn basic sound design in a new synth') for g in localdb(pg)['goals']), 'idea promoted to an active goal keeping its details')
 
     # 8. Mobile: overflow on every screen + tap targets in bottom nav
-    for route in ['today', 'calendar', 'goals', 'gym', 'gym/templates', 'gym/progress', 'routines', 'review', 'settings', f'goals/{goal["id"]}']:
+    for route in ['today', 'calendar', 'goals', 'gym', 'gym/templates', 'gym/progress', 'routines', 'review', 'settings', 'food', 'food/foods', 'food/plans', 'food/weight', 'shopping', f'goals/{goal["id"]}']:
         pg.goto(BASE + '#/' + route); pg.wait_for_timeout(250)
         over = pg.evaluate('document.documentElement.scrollWidth - window.innerWidth')
         if over > 0: check(False, f'no horizontal overflow on {route} ({over}px)')
     check(True, 'checked horizontal overflow on all main screens at 390px')
     small = pg.evaluate("""() => [...document.querySelectorAll('nav button, main button, main input, main select')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.height < 40 || r.width < 40); }).map(e => (e.getAttribute('aria-label') || e.textContent).trim().slice(0,30))""")
     check(len(small) == 0, f'touch targets ≥ ~44px on settings screen ({small[:5]})')
-    pg.get_by_role('button', name='More: routines, review, settings').click()
+    pg.get_by_role('button', name='More: shopping, routines, review, settings').click()
     check(pg.get_by_role('button', name='Weekly review').is_visible(), 'secondary menu exposes review and settings on mobile')
     pg.keyboard.press('Escape')
     # Quick add opens full-height sheet with numeric inputs on gym fields

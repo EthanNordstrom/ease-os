@@ -9,6 +9,7 @@ export function applyCascade(db: DB, table: TableName, id: string): DB {
     next.events = next.events.map((e) => (e.goal_id === id ? { ...e, goal_id: null } : e));
   }
   if (table === 'routines') next.routine_completions = next.routine_completions.filter((c) => c.routine_id !== id);
+  if (table === 'foods') next.food_logs = next.food_logs.map((l) => (l.food_id === id ? { ...l, food_id: null } : l));
   if (table === 'tags') next.events = next.events.map((e) => (e.tag_id === id ? { ...e, tag_id: null } : e));
   if (table === 'workouts') next.events = next.events.map((e) => (e.workout_id === id ? { ...e, workout_id: null } : e));
   if (table === 'workout_templates') next.workouts = next.workouts.map((w) => (w.template_id === id ? { ...w, template_id: null } : w));

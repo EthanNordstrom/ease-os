@@ -7,6 +7,7 @@ import { openEditor, toggleRoutineItem } from '../components/editors';
 import { navigate } from '../lib/router';
 import QuoteCard from '../components/QuoteCard';
 import { startWorkout } from './Gym';
+import { dayTotals, fmtKcal, guessAisle, r0 } from '../lib/food';
 
 export default function Today() {
   const db = useDB();
@@ -29,7 +30,9 @@ export default function Today() {
           <NextActions />
         </div>
         <div className="space-y-12 min-w-0">
+          <FoodToday today={today} />
           <WorkoutToday today={today} />
+          <ShoppingPeek />
           <UpNext today={today} now={now} />
           <QuoteCard today={today} />
         </div>
@@ -45,6 +48,7 @@ function GettingStarted() {
     { done: db.routines.length > 0, label: 'Create your routine', go: () => navigate('routines/new') },
     { done: db.goals.some((g) => g.stage !== 'idea'), label: 'Add a goal you’re working toward', go: () => openEditor({ type: 'goal', stage: 'active' }) },
     { done: db.workout_templates.length > 0 || db.workouts.length > 0, label: 'Set up a workout', go: () => navigate('gym/templates') },
+    { done: db.nutrition_goals.length > 0, label: 'Set a daily calorie target', go: () => navigate('food') },
     { done: db.events.length > 0, label: 'Put something on your calendar', go: () => openEditor({ type: 'event' }) },
   ];
   if (hidden || steps.every((x) => x.done)) return null;
@@ -210,6 +214,75 @@ function NextActions() {
           })}
         </ul>
       )}
+    </section>
+  );
+}
+
+function FoodToday({ today }: { today: string }) {
+  const db = useDB();
+  const s = useSettings();
+  const g = db.nutrition_goals[0];
+  const t = dayTotals(db, today);
+  const left = g ? g.calories - t.calories : 0;
+  return (
+    <section aria-labelledby="fd">
+      <SectionHead label="Food" title="Today’s fuel" action={<button className="btn-ghost -mr-3 text-sm" onClick={() => navigate('food')}>Food log</button>} />
+      <div className="surface p-5">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[34px] leading-none tracking-[-0.03em] font-medium tabular-nums">{fmtKcal(t.calories, s.date_locale)}</p>
+            <p className="meta mt-2">{g ? `of ${fmtKcal(g.calories, s.date_locale)} kcal` : 'kcal eaten'}</p>
+          </div>
+          {g && <div className="text-right"><p className="text-[18px] tabular-nums">{fmtKcal(Math.abs(left), s.date_locale)}</p><p className="meta mt-1">{left >= 0 ? 'to go' : 'over target'}</p></div>}
+        </div>
+        {g && <div className="mt-4"><Progress ratio={Math.min(1, t.calories / g.calories)} label="Calories eaten compared with your target" /></div>}
+        {g?.protein ? (
+          <p className="flex justify-between meta mt-4"><span>Protein</span><span className="text-fg tabular-nums">{r0(t.protein)}<span className="text-fg-3"> / {g.protein} g</span></span></p>
+        ) : null}
+        <div className="flex flex-wrap gap-2 mt-5">
+          <button className="btn-primary" onClick={() => openEditor({ type: 'food', date: today })}><Icon name="plus" size={16} />Log food</button>
+          {!g && <button className="btn-ghost" onClick={() => navigate('food')}>Set a target</button>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ShoppingPeek() {
+  const db = useDB();
+  const [text, setText] = useState('');
+  const open = db.shopping_items.filter((x) => !x.done).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const add = (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = text.trim();
+    if (!n) return;
+    if (open.some((x) => x.name.toLowerCase() === n.toLowerCase())) store.toast(`${n} is already on your list`);
+    else store.insert('shopping_items', { name: n, amount: '', aisle: guessAisle(n), done: false, source: '', sort: 0 });
+    setText('');
+  };
+  return (
+    <section aria-labelledby="sh">
+      <SectionHead label="Shopping" title={open.length ? `${open.length} to get` : 'Shopping list'} action={<button className="btn-ghost -mr-3 text-sm" onClick={() => navigate('shopping')}>Full list</button>} />
+      {open.length > 0 && (
+        <ul className="stagger">
+          {open.slice(0, 5).map((x) => (
+            <li key={x.id} className="row">
+              <CheckButton checked={false} label={`Got ${x.name}`} onClick={() => {
+                store.update('shopping_items', x.id, { done: true });
+                store.toast(`Ticked off ${x.name}`, { label: 'Undo', run: () => store.update('shopping_items', x.id, { done: false }) });
+              }} />
+              <span className="flex-1 min-w-0 truncate">{x.name}</span>
+              {x.amount && <span className="meta text-fg-3 shrink-0">{x.amount}</span>}
+            </li>
+          ))}
+          {open.length > 5 && <li className="pt-2"><button className="btn-ghost -ml-3 text-sm" onClick={() => navigate('shopping')}>+{open.length - 5} more</button></li>}
+        </ul>
+      )}
+      <form onSubmit={add} className="flex gap-2 mt-3">
+        <label className="sr-only" htmlFor="shop-quick">Add to shopping list</label>
+        <input id="shop-quick" className="input" placeholder="Add to shopping list" value={text} onChange={(e) => setText(e.target.value)} />
+        <button className="btn-outline shrink-0" disabled={!text.trim()}>Add</button>
+      </form>
     </section>
   );
 }

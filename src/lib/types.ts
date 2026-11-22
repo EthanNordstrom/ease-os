@@ -109,6 +109,20 @@ export interface Workout extends Base {
 }
 
 export interface Quote extends Base { text: string; builtin_id: string | null; favourite: boolean; own: boolean }
+export type Slot = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
+export interface NutritionGoals extends Base { calories: number; protein: number | null; carbs: number | null; fat: number | null }
+export interface Ingredient { id: string; name: string; amount: string }
+export interface Food extends Base {
+  name: string; kind: 'food' | 'meal' | 'recipe'; serving: string;
+  calories: number; protein: number; carbs: number; fat: number;
+  servings_per_batch: number; ingredients: Ingredient[]; method: string; favourite: boolean;
+}
+export interface FoodLog extends Base { date: ISODate; slot: Slot; food_id: string | null; name: string; servings: number; calories: number; protein: number; carbs: number; fat: number }
+export interface PlanItem { id: string; food_id: string; slot: Slot; servings: number }
+export interface MealPlan extends Base { name: string; items: PlanItem[] }
+export type Aisle = 'produce' | 'meat' | 'dairy' | 'bakery' | 'pantry' | 'frozen' | 'drinks' | 'household' | 'other';
+export interface ShoppingItem extends Base { name: string; amount: string; aisle: Aisle; done: boolean; source: string; sort: number }
+export interface WeighIn extends Base { date: ISODate; kg: number }
 export interface Tag extends Base { name: string; color: string; sort: number }
 export interface Review extends Base { week_start: ISODate; went_well: string; got_in_way: string; change_next: string; priorities: string[] }
 
@@ -126,11 +140,18 @@ export interface Tables {
   quotes: Quote;
   reviews: Review;
   tags: Tag;
+  nutrition_goals: NutritionGoals;
+  foods: Food;
+  food_logs: FoodLog;
+  meal_plans: MealPlan;
+  shopping_items: ShoppingItem;
+  weigh_ins: WeighIn;
 }
 export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   'settings', 'routines', 'routine_completions', 'events', 'goals', 'milestones', 'tasks',
   'exercises', 'workout_templates', 'workouts', 'quotes', 'reviews', 'tags',
+  'nutrition_goals', 'foods', 'food_logs', 'meal_plans', 'shopping_items', 'weigh_ins',
 ];
 export type DB = { [K in TableName]: Tables[K][] };
 export const emptyDB = (): DB => Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as DB;

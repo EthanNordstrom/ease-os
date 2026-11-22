@@ -17,7 +17,7 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -82,6 +82,22 @@ ok(!!tagA, 'user A can create a tag');
 await throws(() => as(A, `insert into tags (name, color) values ('Bad', 'NOT A COLOUR')`), 'tag colour must be a palette key');
 await throws(() => as(B, `insert into events (title, date, tag_id) values ('x', '2026-11-20', $1)`, [tagA]), 'user B cannot use user A’s tag');
 ok((await as(B, `select * from tags`)).rows.length === 0, 'user B cannot see user A’s tags');
+
+// Food, shopping, weigh-ins
+const food = (await as(A, `insert into foods (name, calories, protein) values ('Oats', 800, 27) returning id`)).rows[0].id;
+await as(A, `insert into food_logs (date, slot, food_id, name, calories, protein) values ('2026-11-23', 'breakfast', $1, 'Oats', 800, 27)`, [food]);
+await as(A, `insert into nutrition_goals (calories, protein) values (3500, 180)`);
+await throws(() => as(A, `insert into nutrition_goals (calories) values (2000)`), 'only one set of nutrition goals per user');
+await throws(() => as(A, `update nutrition_goals set calories = 50`), 'calorie goal must be realistic (500–10,000)');
+await as(A, `insert into shopping_items (name, amount, aisle) values ('Beef mince', '600 g', 'meat')`);
+await throws(() => as(A, `insert into shopping_items (name, aisle) values ('x', 'garage')`), 'shopping aisle must be a known value');
+await as(A, `insert into weigh_ins (date, kg) values ('2026-11-23', 72.4)`);
+await throws(() => as(A, `insert into weigh_ins (date, kg) values ('2026-11-23', 72.6)`), 'one weigh-in per day');
+ok((await as(B, `select * from food_logs`)).rows.length === 0 && (await as(B, `select * from shopping_items`)).rows.length === 0 && (await as(B, `select * from weigh_ins`)).rows.length === 0, 'user B cannot see user A’s food log, shopping list or weigh-ins');
+await throws(() => as(B, `insert into food_logs (date, food_id, name) values ('2026-11-23', $1, 'x')`, [food]), 'user B cannot log user A’s saved food');
+ok((await as(B, `update foods set calories = 1 where id = $1 returning id`, [food])).rows.length === 0, 'user B cannot edit user A’s foods');
+await as(A, `delete from foods where id = $1`, [food]);
+ok((await as(A, `select food_id, calories from food_logs`)).rows[0]?.food_id === null && Number((await as(A, `select calories from food_logs`)).rows[0].calories) === 800, 'deleting a saved food keeps past log entries');
 
 // Write rate limit
 let blocked = false, done = 0;

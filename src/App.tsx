@@ -17,16 +17,20 @@ const CalendarPage = lazy(() => import('./pages/Calendar'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Gym = lazy(() => import('./pages/Gym'));
 const Review = lazy(() => import('./pages/Review'));
+const FoodPage = lazy(() => import('./pages/Food'));
+const Shopping = lazy(() => import('./pages/Shopping'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const Auth = lazy(() => import('./pages/Auth'));
 
 const PRIMARY = [
   { id: 'today', label: 'Today', icon: 'today' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
-  { id: 'goals', label: 'Goals', icon: 'goals' },
+  { id: 'food', label: 'Food', icon: 'food' },
   { id: 'gym', label: 'Gym', icon: 'gym' },
+  { id: 'goals', label: 'Goals', icon: 'goals' },
 ];
 const SECONDARY = [
+  { id: 'shopping', label: 'Shopping list', icon: 'cart' },
   { id: 'routines', label: 'Routines', icon: 'routine' },
   { id: 'review', label: 'Weekly review', icon: 'review' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
@@ -146,6 +150,8 @@ function Shell() {
     case 'gym': content = <Gym sub={route[1]} id={route[2]} />; break;
     case 'routines': content = <Routines startNew={route[1] === 'new'} />; break;
     case 'review': content = <Review />; break;
+    case 'food': content = <FoodPage sub={route[1]} />; break;
+    case 'shopping': content = <Shopping />; break;
     case 'settings': content = <SettingsPage />; break;
     default: content = <Today />;
   }
@@ -186,7 +192,7 @@ function Shell() {
           <div className="flex items-center gap-1">
             <SaveIndicator compact />
             <ThemeToggle />
-            <button className="icon-btn" aria-label="More: routines, review, settings" onClick={() => setMenu(true)}><Icon name="menu" /></button>
+            <button className="icon-btn" aria-label="More: shopping, routines, review, settings" onClick={() => setMenu(true)}><Icon name="menu" /></button>
           </div>
         </div>
       </header>
@@ -208,7 +214,7 @@ function Shell() {
         <Icon name="plus" size={24} strokeWidth={2} />
       </button>
       <nav aria-label="Main" className="md:hidden fixed z-30 bottom-0 inset-x-0 bg-ink-950/95 backdrop-blur-sm border-t border-ink-700 pb-safe">
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-5 h-16">
           {PRIMARY.map((n) => {
             const active = page === n.id || (!page && n.id === 'today');
             return (

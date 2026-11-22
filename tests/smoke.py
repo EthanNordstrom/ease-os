@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:4173/'
 OUT = '/home/claude/shots'
 import os; os.makedirs(OUT, exist_ok=True)
-pages = ['today', 'calendar', 'goals', 'gym', 'routines', 'review', 'settings']
+pages = ['today', 'calendar', 'food', 'food/foods', 'food/weight', 'shopping', 'goals', 'gym', 'routines', 'review', 'settings']
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     errors = []
@@ -19,7 +19,7 @@ with sync_playwright() as p:
             pg.goto(BASE + '#/' + name); pg.wait_for_timeout(400)
             over = pg.evaluate('document.documentElement.scrollWidth - window.innerWidth')
             if over > 0: errors.append(f'overflow {over}px on {name} @ {w}')
-            pg.screenshot(path=f'{OUT}/{name}-{w}.png', full_page=True)
+            pg.screenshot(path=f'{OUT}/{name.replace("/","-")}-{w}.png', full_page=True)
         ctx.close()
     b.close()
     print('\n'.join(errors) or 'no errors')

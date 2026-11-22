@@ -86,7 +86,7 @@ with sync_playwright() as p:
 
     # Sign out from the More menu (mobile)
     pg.goto(BASE + '#/today'); pg.wait_for_timeout(400)
-    pg.get_by_role('button', name='More: routines, review, settings').click()
+    pg.get_by_role('button', name='More: shopping, routines, review, settings').click()
     pg.locator('[role=dialog]').get_by_role('button', name='Sign out').click()
     pg.locator('[role=dialog]').get_by_role('button', name='Sign out').last.click(); pg.wait_for_timeout(1500)
     check(pg.get_by_role('heading', name='Welcome back').is_visible(), 'Sign out in the mobile menu works (with a confirmation)')

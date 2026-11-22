@@ -77,7 +77,7 @@ with sync_playwright() as p:
     urllib.request.urlopen(API + '/__offline?v=1')
     phone.goto(BASE + '#/today'); phone.wait_for_timeout(500)
     phone.get_by_label('Add a priority').fill('Offline priority')
-    phone.get_by_role('button', name='Add', exact=True).click()
+    phone.locator('form').filter(has=phone.get_by_label('Add a priority')).get_by_role('button', name='Add').click()
     phone.wait_for_timeout(2500)
     check('offline' in status(phone).lower(), f'phone: shows offline with waiting changes ({status(phone)!r})')
     phone.reload(); phone.wait_for_timeout(2500)

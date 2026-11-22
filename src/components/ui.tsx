@@ -156,12 +156,12 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function CheckButton({ checked, onClick, label, size = 'md' }: { checked: boolean; onClick: () => void; label: string; size?: 'md' | 'lg' }) {
+export function CheckButton({ checked, onClick, label, size = 'md', color }: { checked: boolean; onClick: () => void; label: string; size?: 'md' | 'lg'; color?: string }) {
   const dim = size === 'lg' ? 'w-14 h-14' : 'w-11 h-11';
   return (
     <button onClick={onClick} aria-pressed={checked} aria-label={label}
       className={`shrink-0 ${dim} grid place-items-center rounded transition-colors duration-150 group`}>
-      <span key={String(checked)} className={`grid place-items-center ${size === 'lg' ? 'w-9 h-9' : 'w-6 h-6'} rounded-[5px] border transition-colors duration-200
+      <span key={String(checked)} style={checked && color ? { backgroundColor: color, borderColor: color } : undefined} className={`check-box grid place-items-center ${size === 'lg' ? 'w-9 h-9' : 'w-6 h-6'} rounded-[5px] border transition-colors duration-200
         ${checked ? 'bg-acid border-acid text-acid-ink anim-pop' : 'border-ink-500 group-hover:border-fg-3 group-active:scale-90 text-transparent'}`}>
         {checked && <svg width={size === 'lg' ? 22 : 16} height={size === 'lg' ? 22 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path className="anim-draw" d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
       </span>
@@ -186,10 +186,10 @@ export function WeekdayPicker({ value, onChange, locale, weekStart }: { value: n
   );
 }
 
-export function Progress({ ratio, label }: { ratio: number; label: string }) {
+export function Progress({ ratio, label, color }: { ratio: number; label: string; color?: string }) {
   return (
     <div className="h-1 rounded-full bg-ink-700 overflow-hidden" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}>
-      <div className="h-full bg-acid transition-[width] duration-700" style={{ width: `${Math.round(ratio * 100)}%`, transitionTimingFunction: 'var(--ease-out)' }} />
+      <div className="h-full bg-acid transition-[width] duration-700 progress-fill" style={{ width: `${Math.round(ratio * 100)}%`, transitionTimingFunction: 'var(--ease-out)', ...(color ? { backgroundColor: color } : {}) }} />
     </div>
   );
 }

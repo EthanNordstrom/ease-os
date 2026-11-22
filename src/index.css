@@ -119,8 +119,53 @@ input[type='date'], input[type='time'] { color-scheme: var(--scheme); min-height
 .anim-sheet { animation: sheetUp 380ms var(--ease-out) backwards; }
 .anim-backdrop { animation: fadeIn 160ms ease-out backwards; }
 
+/* ---------- Premium motion layer ---------- */
+@keyframes sweep { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(260%) skewX(-20deg); } }
+@keyframes pulseDot { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gc, rgb(var(--acid))) 55%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes drift { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(3%, 4%, 0) scale(1.08); } }
+@keyframes burst { from { transform: scale(.4); opacity: .7; } to { transform: scale(2.2); opacity: 0; } }
+@keyframes fadeScale { from { opacity: 0; transform: scale(.985) translateY(6px); } to { opacity: 1; transform: none; } }
+.anim-pulse { animation: pulseDot 2.4s ease-out infinite; }
+.progress-fill { transform-origin: left; animation: grow 900ms var(--ease-out) backwards; position: relative; overflow: hidden; }
+.progress-fill::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .35), transparent); animation: sweep 3.2s ease-in-out 1s infinite; }
+
+/* Goal hero: category colour as a soft tint and a strong edge, not a glow */
+.goal-hero { position: relative; background: color-mix(in srgb, var(--gc) 7%, rgb(var(--ink-900))); border: 1px solid color-mix(in srgb, var(--gc) 28%, rgb(var(--ink-700))); border-left: 3px solid var(--gc); }
+.goal-hero::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(60% 90% at 100% 0%, color-mix(in srgb, var(--gc) 16%, transparent), transparent 70%); }
+
+/* Buttons: light sweep on the primary action */
+.btn-primary:not([href="#main"]) { position: relative; overflow: hidden; }
+@media (hover: hover) { .btn-primary:hover::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .35), transparent); animation: sweep 700ms ease-out; pointer-events: none; } }
+
+/* Rows slide in slightly and pick up a tint on hover (pointer devices only) */
+@media (hover: hover) {
+  .row { position: relative; }
+  .row:hover { background: linear-gradient(90deg, rgb(var(--acid) / .05), transparent 70%); }
+  nav a, aside a, nav button { transition: transform 200ms var(--ease-out), background-color 200ms, color 200ms; }
+  aside nav a:hover { transform: translateX(3px); }
+  aside nav a:hover svg { transform: scale(1.12); }
+  aside nav a svg, nav svg { transition: transform 240ms var(--ease-spring); }
+  .surface:hover { transform: translateY(-2px); }
+}
+
+/* Checking something off: ring burst */
+.check-box { position: relative; }
+.check-box.anim-pop::after { content: ''; position: absolute; inset: -2px; border-radius: 7px; border: 2px solid currentColor; opacity: 0; animation: burst 520ms var(--ease-out); pointer-events: none; }
+
+/* Ambient accent light that slowly drifts behind the content */
+main { position: relative; isolation: isolate; }
+main::before { content: ''; position: fixed; z-index: -1; top: -20vh; right: -10vw; width: 60vw; height: 60vh; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--acid) / .07), transparent); animation: drift 22s ease-in-out infinite; }
+
+/* Sections ease into view as you scroll (modern browsers; harmless elsewhere) */
+@supports (animation-timeline: view()) {
+  main section, main .surface { animation: fadeScale linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+  *, *::before, *::after { animation-delay: 0s !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }

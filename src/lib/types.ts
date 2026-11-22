@@ -97,7 +97,7 @@ export interface Task extends Base {
 export type ExerciseKind = 'weighted' | 'bodyweight' | 'timed';
 export interface Exercise extends Base { name: string; kind: ExerciseKind; notes: string }
 export interface TemplateItem { id: string; exercise_id: string; sets: number; reps: number | null; weight: number | null; seconds: number | null; rest_seconds: number }
-export interface WorkoutTemplate extends Base { name: string; notes: string; items: TemplateItem[] }
+export interface WorkoutTemplate extends Base { name: string; notes: string; items: TemplateItem[]; /** 0 = Sunday … 6 = Saturday */ weekdays: number[]; plan_time: HHMM | null; archived?: boolean }
 export interface WorkoutSet { id: string; type: 'warmup' | 'working'; reps: number | null; weight: number | null; seconds: number | null; rpe: number | null; done: boolean; done_at: string | null }
 export interface WorkoutEntry { id: string; exercise_id: string; notes: string; rest_seconds: number; sets: WorkoutSet[] }
 export interface Workout extends Base {

@@ -44,7 +44,7 @@ with sync_playwright() as p:
     body = pg.locator('main').inner_text()
     check(not any(x in body for x in ['Brush teeth', 'Morning routine', 'DnB', 'Studio session', 'Upper A']), 'no pre-existing routine, goals, events or workouts')
     pg.goto(BASE + '#/gym/exercises'); pg.wait_for_timeout(500)
-    check(pg.locator('main ul li').count() == 0, 'exercise library starts empty')
+    check(pg.locator('main section[aria-label="Built-in library"]').count() == 1 and pg.get_by_text('Add all').count() == 1 and pg.locator('main > div ul li').count() > 0 and pg.locator('main div.grid section ul li').count() == 0, 'personal exercise list starts empty; built-in library is offered')
     pg.goto(BASE + '#/goals'); pg.wait_for_timeout(400)
     check(pg.get_by_text('No active goals').is_visible(), 'goals start empty')
 

@@ -1,7 +1,7 @@
 import { addMonths, diffDays, rangeDays, startOfWeek, weekday } from './dates';
 import { tagHex } from './palette';
 import { fmtMoney, isPaid, moneySettings, paydayPlan, repeatDates, savedSoFar } from './money';
-import type { CalEvent, Category, DB, Exercise, Goal, ISODate, Routine, Workout, WorkoutSet } from './types';
+import type { CalEvent, Category, DB, Exercise, Goal, ISODate, Routine, Workout, WorkoutSet, WorkoutTemplate } from './types';
 
 /* ---------------- Routines ---------------- */
 
@@ -88,7 +88,7 @@ export function expandEvents(events: CalEvent[], from: ISODate, to: ISODate): Oc
 export type ItemKind = 'event' | 'routine' | 'workout' | 'goal' | 'milestone' | 'bill' | 'payday' | 'saving';
 export interface CalItem {
   key: string; kind: ItemKind; category: Category; title: string; date: ISODate; all_day: boolean;
-  start_time: string | null; end_time: string | null; completed: boolean; progress?: string; refId: string; occ?: Occurrence; sample?: boolean;
+  start_time: string | null; end_time: string | null; completed: boolean; progress?: string; refId: string; occ?: Occurrence; sample?: boolean; /** A repeating template day that has no saved workout yet. */ virtual?: { templateId: string };
   /** Filter key ('personal'… or 'tag:<id>'), colour and label shown for this item. */
   filter: string; color: string; label: string;
 }
@@ -116,6 +116,10 @@ export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate
     if (!d || d < from || d > to) continue;
     items.push({ key: `w:${w.id}`, kind: 'workout', category: 'gym', title: w.name, date: d, all_day: !w.planned_time, start_time: w.planned_time,
       end_time: null, completed: w.status === 'completed', progress: w.status === 'in_progress' ? 'in progress' : undefined, refId: w.id, sample: w.is_sample });
+  }
+  for (const o of templateOccurrences(db, from < today ? today : from, to)) {
+    items.push({ key: `t:${o.template.id}:${o.date}`, kind: 'workout', category: 'gym', title: o.template.name, date: o.date, all_day: !o.template.plan_time,
+      start_time: o.template.plan_time, end_time: null, completed: false, refId: o.template.id, virtual: { templateId: o.template.id }, sample: o.template.is_sample });
   }
   for (const g of db.goals) {
     if (!g.target_date || g.stage === 'idea' || g.stage === 'archived') continue;
@@ -157,6 +161,20 @@ export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate
   return out.sort((a, b) => a.date.localeCompare(b.date) || Number(b.all_day) - Number(a.all_day) || (a.start_time ?? '').localeCompare(b.start_time ?? ''));
 }
 
+/** Dates a template repeats on that don't have a saved workout yet. Never in the past, so nothing shows as "missed". */
+export function templateOccurrences(db: DB, from: ISODate, to: ISODate): { template: WorkoutTemplate; date: ISODate }[] {
+  const out: { template: WorkoutTemplate; date: ISODate }[] = [];
+  for (const t of db.workout_templates) {
+    if (t.archived || !t.weekdays?.length) continue;
+    for (const d of rangeDays(from, to)) {
+      if (!t.weekdays.includes(weekday(d))) continue;
+      if (db.workouts.some((w) => w.template_id === t.id && (w.planned_date === d || w.started_at?.slice(0, 10) === d))) continue;
+      out.push({ template: t, date: d });
+    }
+  }
+  return out;
+}
+
 export const CATEGORY_META: Record<Category, { label: string; color: string }> = {
   // Mid-tone hues readable on both the light and dark backgrounds.
   personal: { label: 'Personal', color: tagHex('slate') },
@@ -172,6 +190,10 @@ export const CATEGORY_META: Record<Category, { label: string; color: string }> =
 export const GOAL_CATEGORIES: Record<Goal['category'], string> = {
   health: 'Health & fitness', appearance: 'Appearance & self-care', music: 'Music & creativity', career: 'Career & learning',
   money: 'Money & organisation', personal: 'Personal life',
+};
+
+export const GOAL_COLORS: Record<Goal['category'], string> = {
+  health: tagHex('coral'), appearance: tagHex('pink'), music: tagHex('violet'), career: tagHex('cyan'), money: tagHex('green'), personal: tagHex('gold'),
 };
 
 export function goalProgress(db: DB, g: Goal): { label: string; ratio: number | null; detail: string } {

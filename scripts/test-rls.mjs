@@ -17,7 +17,7 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql', '0007_money.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql', '0007_money.sql', '0008_template_schedule.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -125,6 +125,10 @@ const sg = (await as(A, `insert into savings_goals (name, target, target_date) v
 await as(A, `insert into savings_transfers (goal_id, date, amount) values ($1, '2026-11-23', 150)`, [sg]);
 await as(A, `insert into savings_transfers (goal_id, date, amount, payday) values ($1, '2026-11-24', 50, '2026-11-24')`, [sg]);
 await throws(() => as(A, `insert into savings_transfers (goal_id, date, amount, payday) values ($1, '2026-11-24', 50, '2026-11-24')`, [sg]), 'a payday can only be auto-logged once per goal');
+await as(A, `insert into workout_templates (name, weekdays, plan_time) values ('Push', '{1,3,5}', '17:30')`);
+await as(A, `update workout_templates set archived = true where name = 'Push'`);
+await throws(() => as(A, `insert into workout_templates (name, weekdays) values ('Bad', '{7}')`), 'template weekdays must be 0-6');
+await throws(() => as(A, `insert into workout_templates (name, plan_time) values ('Bad', '25:99')`), 'template time must be a real HH:MM');
 await throws(() => as(A, `insert into savings_transfers (goal_id, date, amount) values ($1, '2026-11-23', 0)`, [sg]), 'zero-dollar transfers are rejected');
 ok((await as(B, `select * from bills`)).rows.length === 0 && (await as(B, `select * from savings_goals`)).rows.length === 0 && (await as(B, `select * from money_settings`)).rows.length === 0, 'user B cannot see user A’s money data');
 await throws(() => as(B, `insert into bill_payments (bill_id, due_date) values ($1, '2026-12-01')`, [bill]), 'user B cannot mark user A’s bill as paid');

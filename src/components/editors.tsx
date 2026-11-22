@@ -403,7 +403,7 @@ function PlanWorkoutForm({ id, date }: { id?: string; date?: ISODate }) {
   const s = useSettings();
   const existing = id ? db.workouts.find((w) => w.id === id) : undefined;
   const [f, setF] = useState({
-    template_id: existing?.template_id ?? db.workout_templates[0]?.id ?? '', name: existing?.name ?? '',
+    template_id: existing?.template_id ?? db.workout_templates.find((t) => !t.archived)?.id ?? '', name: existing?.name ?? '',
     planned_date: existing?.planned_date ?? date ?? todayISO(s.timezone), planned_time: existing?.planned_time ?? '',
   });
   const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }));
@@ -436,7 +436,7 @@ function PlanWorkoutForm({ id, date }: { id?: string; date?: ISODate }) {
           <Field label="Template">
             <select className="input" value={f.template_id} onChange={(e) => set({ template_id: e.target.value })}>
               <option value="">Empty workout</option>
-              {db.workout_templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {db.workout_templates.filter((t) => !t.archived || t.id === f.template_id).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </Field>
         )}

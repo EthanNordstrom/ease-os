@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { store, useDB, useSettings } from '../lib/store';
 import { addDays, diffDays, fmtDate, fmtTime, nowParts, relativeDay, timeToMin } from '../lib/dates';
-import { calendarItems, goalProgress, nextAction, pickCurrentRoutine, routineProgress, routineScheduledOn } from '../lib/domain';
+import { calendarItems, templateOccurrences, goalProgress, nextAction, pickCurrentRoutine, routineProgress, routineScheduledOn } from '../lib/domain';
 import type { Routine } from '../lib/types';
 import { CheckButton, Empty, Icon, Progress, SectionHead, confirmAction } from '../components/ui';
 import { openEditor, toggleRoutineItem } from '../components/editors';
 import { navigate } from '../lib/router';
 import QuoteCard from '../components/QuoteCard';
-import { startWorkout } from '../lib/workouts';
+import { materialiseTemplate, startWorkout } from '../lib/workouts';
 import { dayTotals, fmtKcal, guessAisle, r0 } from '../lib/food';
 import { setUi } from '../lib/prefs';
 import { dueSoon, fmtMoney, moneySettings, nextPayday, paydayPlan } from '../lib/money';
@@ -336,15 +336,26 @@ function WorkoutToday({ today }: { today: string }) {
   const active = db.workouts.find((w) => w.status === 'in_progress');
   const planned = db.workouts.filter((w) => w.planned_date === today && w.status !== 'in_progress').sort((a, b) => (a.planned_time ?? '').localeCompare(b.planned_time ?? ''));
   const list = [...(active ? [active] : []), ...planned];
+  const repeating = templateOccurrences(db, today, today).filter((o) => !planned.some((w) => w.template_id === o.template.id));
   return (
     <section aria-labelledby="wk">
       <SectionHead label="Gym" title={active ? 'Workout in progress' : 'Today’s workout'} />
-      {!list.length ? (
+      {!list.length && !repeating.length ? (
         <div className="flex items-center justify-between gap-3 py-3 border-y border-ink-700">
           <span className="text-fg-2">No workout planned.</span>
           <button className="btn-ghost -mr-3" onClick={() => openEditor({ type: 'workout', date: today })}>Plan one</button>
         </div>
-      ) : list.map((w) => {
+      ) : <>
+      {repeating.map((o) => (
+        <div key={o.template.id} className="surface p-4 mb-2 flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-[17px] truncate">{o.template.name}</p>
+            <p className="meta mt-0.5">{o.template.items.length} exercises · {o.template.plan_time ? fmtTime(o.template.plan_time, s.hour12) : 'Any time'} · repeats</p>
+          </div>
+          <button className="btn-primary" onClick={() => { const w = materialiseTemplate(o.template.id, today); if (w) startWorkout(w); }}><Icon name="play" size={16} />Start</button>
+        </div>
+      ))}
+      {list.map((w) => {
         const sets = w.entries.flatMap((e) => e.sets);
         return (
           <div key={w.id} className="surface p-4 mb-2 flex items-center gap-4">
@@ -363,6 +374,7 @@ function WorkoutToday({ today }: { today: string }) {
           </div>
         );
       })}
+      </>}
     </section>
   );
 }

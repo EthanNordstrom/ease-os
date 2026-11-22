@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { store, uid, useDB, useSettings } from '../lib/store';
 import { addDays, addMonths, diffDays, fmtDate, rangeDays, startOfMonth, todayISO } from '../lib/dates';
-import { GOAL_CATEGORIES, goalProgress, nextAction } from '../lib/domain';
+import { GOAL_CATEGORIES, GOAL_COLORS, goalProgress, nextAction } from '../lib/domain';
 import type { Goal } from '../lib/types';
 import { CheckButton, Empty, Icon, Progress, SectionHead, Segmented, confirmAction } from '../components/ui';
 import { openEditor } from '../components/editors';
@@ -68,14 +68,14 @@ function GoalRows({ goals }: { goals: Goal[] }) {
             <button onClick={() => navigate(`goals/${g.id}`)} className="w-full text-left grid grid-cols-1 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_160px] gap-x-8 gap-y-3 py-5 hover:bg-ink-900/60 -mx-3 px-3 rounded transition-colors">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em] text-fg-3 mb-1">
-                  {GOAL_CATEGORIES[g.category]}<span>·</span>{g.priority}{g.stage !== 'active' && <><span>·</span>{g.stage}</>}
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GOAL_COLORS[g.category] }} />{GOAL_CATEGORIES[g.category]}<span>·</span>{g.priority}{g.stage !== 'active' && <><span>·</span>{g.stage}</>}
                 </p>
                 <p className="text-[19px] tracking-tight">{g.title}</p>
                 {na && g.stage === 'active' && <p className="text-sm text-fg-2 mt-1 truncate">Next: {na.text}</p>}
               </div>
               <div className="self-center">
                 <p className="meta mb-2">{p.label}</p>
-                {p.ratio !== null && <Progress ratio={p.ratio} label={`${g.title}: ${p.label}`} />}
+                {p.ratio !== null && <Progress color={GOAL_COLORS[g.category]} ratio={p.ratio} label={`${g.title}: ${p.label}`} />}
               </div>
               <p className="meta md:text-right self-center">
                 {g.target_date ? <>{fmtDate(g.target_date, s.date_locale)}<span className="block text-fg-3">{days! >= 0 ? `${days} days left` : `${-days!} days past`}</span></> : 'No deadline'}
@@ -108,7 +108,7 @@ function Ideas({ ideas }: { ideas: Goal[] }) {
             <li key={g.id} className="row flex-wrap py-4">
               <div className="flex-1 min-w-[200px]">
                 <p className="flex items-center gap-2"><span>{g.title}</span></p>
-                <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-fg-3 mt-0.5">{GOAL_CATEGORIES[g.category]}</p>
+                <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em] text-fg-3 mt-0.5"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GOAL_COLORS[g.category] }} />{GOAL_CATEGORIES[g.category]}</p>
                 {g.description && <p className="text-sm text-fg-2 mt-1">{g.description}</p>}
               </div>
               <div className="flex items-center gap-1">
@@ -227,6 +227,7 @@ function GoalDetail({ id }: { id: string }) {
   const [na, setNa] = useState(g?.next_action ?? '');
   useEffect(() => setNa(g?.next_action ?? ''), [g?.next_action]);
   if (!g) return <Empty title="Goal not found" body="It may have been deleted on another device." action={<button className="btn-outline" onClick={() => navigate('goals')}>Back to goals</button>} />;
+  const gc = GOAL_COLORS[g.category];
   const p = goalProgress(db, g);
   const ms = db.milestones.filter((m) => m.goal_id === g.id).sort((a, b) => (a.due_date ?? '9').localeCompare(b.due_date ?? '9') || a.sort - b.sort);
   const tasks = db.tasks.filter((t) => t.goal_id === g.id).sort((a, b) => Number(a.done) - Number(b.done) || a.sort - b.sort);
@@ -238,10 +239,10 @@ function GoalDetail({ id }: { id: string }) {
   };
 
   return (
-    <div className="anim-fade">
+    <div className="anim-fade" style={{ ['--gc' as any]: gc }}>
       <button className="btn-ghost -ml-3 mb-6" onClick={() => navigate('goals')}><Icon name="left" size={16} />Goals</button>
-      <header className="mb-10">
-        <p className="flex flex-wrap items-center gap-2 label mb-3">{GOAL_CATEGORIES[g.category]} · {g.priority} priority · {g.stage}</p>
+      <header className="mb-10 goal-hero rounded-xl p-5 md:p-8 -mx-1">
+        <p className="flex flex-wrap items-center gap-2 label mb-3"><span className="w-2 h-2 rounded-full anim-pulse" style={{ backgroundColor: gc }} /><span style={{ color: gc }}>{GOAL_CATEGORIES[g.category]}</span> · {g.priority} priority · {g.stage}</p>
         <h1 className="h-display max-w-[22ch]">{g.title}</h1>
         {g.description && <p className="text-fg-2 mt-4 max-w-2xl text-[17px] leading-relaxed">{g.description}</p>}
         <div className="flex flex-wrap gap-2 mt-6">
@@ -276,7 +277,7 @@ function GoalDetail({ id }: { id: string }) {
               <ul className="border-t border-ink-700">
                 {ms.map((m) => (
                   <li key={m.id} className="row">
-                    <CheckButton checked={m.done} label={m.title} onClick={() => store.update('milestones', m.id, { done: !m.done, done_at: m.done ? null : new Date().toISOString() })} />
+                    <CheckButton color={gc} checked={m.done} label={m.title} onClick={() => store.update('milestones', m.id, { done: !m.done, done_at: m.done ? null : new Date().toISOString() })} />
                     <button className="flex-1 min-w-0 text-left min-h-[44px]" onClick={() => openEditor({ type: 'milestone', id: m.id })}>
                       <span className={m.done ? 'text-fg-3 line-through decoration-ink-500' : ''}>{m.title}</span>
                     </button>
@@ -294,7 +295,7 @@ function GoalDetail({ id }: { id: string }) {
                 const openIdx = tasks.filter((x) => !x.done).indexOf(t);
                 return (
                   <li key={t.id} className="row">
-                    <CheckButton checked={t.done} label={t.title} onClick={() => store.update('tasks', t.id, { done: !t.done, done_at: t.done ? null : new Date().toISOString() })} />
+                    <CheckButton color={gc} checked={t.done} label={t.title} onClick={() => store.update('tasks', t.id, { done: !t.done, done_at: t.done ? null : new Date().toISOString() })} />
                     <button className="flex-1 min-w-0 text-left min-h-[44px]" onClick={() => openEditor({ type: 'task', id: t.id })}>
                       <span className={t.done ? 'text-fg-3 line-through decoration-ink-500' : ''}>{t.title}</span>
                       {t.focus_date === today && <span className="block font-mono text-[10px] uppercase tracking-[0.06em] text-acid">Today’s priority</span>}
@@ -322,8 +323,9 @@ function GoalDetail({ id }: { id: string }) {
         <div className="space-y-12 min-w-0">
           <section>
             <SectionHead label="Progress" title={p.label} />
+            {p.ratio !== null && <p className="text-5xl font-light tracking-tight mb-2 tabular-nums" style={{ color: gc }}>{Math.round(p.ratio * 100)}<span className="text-2xl text-fg-3">%</span></p>}
             <p className="meta text-fg-3 mb-3">Method: {p.detail}</p>
-            {p.ratio !== null && <Progress ratio={p.ratio} label={p.label} />}
+            {p.ratio !== null && <Progress color={gc} ratio={p.ratio} label={p.label} />}
             {g.progress_method === 'numeric' && (
               <div className="flex items-center gap-2 mt-4">
                 <button className="icon-btn border border-ink-600" aria-label="Decrease" onClick={() => store.update('goals', g.id, (x) => ({ current_value: Math.max(0, x.current_value - 1) }))}><span className="text-xl leading-none">−</span></button>

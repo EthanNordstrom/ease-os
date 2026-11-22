@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { store, uid, useDB, useSettings } from '../lib/store';
-import { fmtDate, fmtTime, todayISO } from '../lib/dates';
-import { describeSet, exerciseSeries, previousEntry, repCountsFor, setVolume, workoutDate } from '../lib/domain';
+import { addDays, fmtDate, fmtTime, todayISO, weekdaysLabel } from '../lib/dates';
+import { describeSet, templateOccurrences, exerciseSeries, previousEntry, repCountsFor, setVolume, workoutDate } from '../lib/domain';
 import type { Exercise, ExerciseKind, TemplateItem, Workout, WorkoutEntry, WorkoutSet, WorkoutTemplate } from '../lib/types';
-import { Empty, Field, Icon, Segmented, Sheet, confirmAction, num } from '../components/ui';
+import { Empty, Field, Icon, Segmented, Sheet, WeekdayPicker, confirmAction, num } from '../components/ui';
 import { entriesFromTemplate, openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
 import LineChart from '../components/LineChart';
-import { startWorkout } from '../lib/workouts';
+import { adoptExercise, materialiseTemplate, missingCatalog, startWorkout } from '../lib/workouts';
+import { EXERCISE_CATALOG, catalogKey } from '../lib/exerciseCatalog';
 import { createPortal } from 'react-dom';
 
 type Tab = 'plan' | 'templates' | 'exercises' | 'history' | 'progress';
@@ -51,6 +52,7 @@ function Plan() {
   const today = todayISO(s.timezone);
   const active = db.workouts.filter((w) => w.status === 'in_progress');
   const upcoming = db.workouts.filter((w) => w.status === 'planned').sort((a, b) => (a.planned_date ?? '9').localeCompare(b.planned_date ?? '9'));
+  const repeating = templateOccurrences(db, today, addDays(today, 6)).filter((o) => !upcoming.some((w) => w.template_id === o.template.id && w.planned_date === o.date));
   const overdue = upcoming.filter((w) => w.planned_date && w.planned_date < today);
   const next = upcoming.filter((w) => !w.planned_date || w.planned_date >= today);
   const Row = ({ w }: { w: Workout }) => (
@@ -76,6 +78,22 @@ function Plan() {
         </div>
         {!next.length ? <Empty title="Nothing planned" body="Plan a workout from a template — it’ll show on your calendar." /> : <ul className="stagger border-t border-ink-700">{next.map((w) => <Row key={w.id} w={w} />)}</ul>}
       </section>
+      {repeating.length > 0 && (
+        <section>
+          <p className="label mb-1">Repeating this week</p>
+          <p className="text-sm text-fg-2 mb-3">From the days you set on your templates. They’re also on your calendar.</p>
+          <ul className="stagger border-t border-ink-700">{repeating.map((o) => (
+            <li key={o.template.id + o.date} className="row py-3 flex-wrap">
+              <div className="flex-1 min-w-[180px]">
+                <span className="block">{o.template.name}</span>
+                <span className="meta block mt-0.5">{fmtDate(o.date, s.date_locale, { weekday: 'short', day: 'numeric', month: 'short' })}{o.template.plan_time ? ` · ${fmtTime(o.template.plan_time, s.hour12)}` : ' · any time'} · {o.template.items.length} exercises</span>
+              </div>
+              <button className="btn-ghost" onClick={() => { const w = materialiseTemplate(o.template.id, o.date); if (w) openEditor({ type: 'workout', id: w.id }); }}>Reschedule</button>
+              <button className="btn-primary" onClick={() => { const w = materialiseTemplate(o.template.id, o.date); if (w) startWorkout(w); }}><Icon name="play" size={16} />Start</button>
+            </li>
+          ))}</ul>
+        </section>
+      )}
       {overdue.length > 0 && (
         <section>
           <p className="label mb-1">Earlier plans not done</p>
@@ -305,10 +323,11 @@ function ExercisePicker({ open, onClose, onPick }: { open: boolean; onClose: () 
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<ExerciseKind>('weighted');
   const list = db.exercises.filter((e) => e.name.toLowerCase().includes(q.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name));
+  const builtIn = missingCatalog(db.exercises).filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
   return (
     <Sheet open={open} onClose={onClose} title="Add exercise">
       <input className="input mb-3" placeholder="Search or type a new exercise" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search exercises" />
-      {q.trim() && !db.exercises.some((e) => e.name.toLowerCase() === q.trim().toLowerCase()) && (
+      {q.trim() && !db.exercises.some((e) => e.name.toLowerCase() === q.trim().toLowerCase()) && !EXERCISE_CATALOG.some((c) => catalogKey(c.name) === catalogKey(q)) && (
         <div className="surface p-3 mb-3 space-y-3">
           <Segmented label="Exercise type" value={kind} onChange={setKind} options={(['weighted', 'bodyweight', 'timed'] as ExerciseKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))} />
           <button className="btn-primary w-full" onClick={() => { const ex = store.insert('exercises', { name: q.trim(), kind, notes: '' }); setQ(''); onPick(ex); }}>Create “{q.trim()}”</button>
@@ -317,6 +336,14 @@ function ExercisePicker({ open, onClose, onPick }: { open: boolean; onClose: () 
       <ul>{list.map((e) => (
         <li key={e.id}><button className="row w-full text-left" onClick={() => { setQ(''); onPick(e); }}><span className="flex-1">{e.name}</span><span className="meta text-fg-3">{KIND_LABEL[e.kind]}</span></button></li>
       ))}</ul>
+      {builtIn.length > 0 && (
+        <>
+          <p className="label mt-6 mb-1">Built-in library</p>
+          <ul>{builtIn.map((c) => (
+            <li key={c.name}><button className="row w-full text-left" onClick={() => { setQ(''); onPick(adoptExercise(c)); }}><span className="flex-1">{c.name}<span className="meta block text-fg-3">{c.group}</span></span><span className="meta text-fg-3">{KIND_LABEL[c.kind]}</span></button></li>
+          ))}</ul>
+        </>
+      )}
     </Sheet>
   );
 }
@@ -324,24 +351,51 @@ function ExercisePicker({ open, onClose, onPick }: { open: boolean; onClose: () 
 /* ---------------- Templates ---------------- */
 function Templates() {
   const db = useDB();
+  const s = useSettings();
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const exName = (id: string) => db.exercises.find((e) => e.id === id)?.name ?? 'Deleted exercise';
+  const [showArchived, setShowArchived] = useState(false);
+  const active = db.workout_templates.filter((t) => !t.archived);
+  const archived = db.workout_templates.filter((t) => t.archived);
+  const archive = (t: WorkoutTemplate, on: boolean) => {
+    store.update('workout_templates', t.id, { archived: on });
+    store.toast(on ? `${t.name} archived` : `${t.name} restored`, { label: 'Undo', run: () => store.update('workout_templates', t.id, { archived: !on }) });
+  };
+  const remove = async (t: WorkoutTemplate) => {
+    if (await confirmAction({ title: `Delete ${t.name}?`, body: 'Workouts already planned or logged from it are kept. To keep it for later, archive it instead.', confirm: 'Delete', danger: true })) store.remove('workout_templates', t.id, { undo: 'Template deleted' });
+  };
+  const TemplateRow = ({ t }: { t: WorkoutTemplate }) => (
+    <li className={`row py-4 flex-wrap ${t.archived ? 'opacity-70' : ''}`}>
+      <button className="flex-1 min-w-[200px] text-left" onClick={() => setEditing(t.id)}>
+        <span className="flex items-center gap-2 text-[17px]">{t.name}</span>
+        <span className="block text-sm text-fg-2 mt-0.5">{t.items.map((i) => exName(i.exercise_id)).join(' · ') || 'No exercises'}</span>
+        {!t.archived && t.weekdays?.length > 0 && <span className="block font-mono text-[11px] uppercase tracking-[0.06em] text-acid mt-1">Repeats {weekdaysLabel(t.weekdays, s.date_locale)}{t.plan_time ? ` · ${fmtTime(t.plan_time, s.hour12)}` : ''}</span>}
+      </button>
+      {t.archived ? (<>
+        <button className="btn-ghost hover:text-bad" onClick={() => remove(t)}><Icon name="trash" size={16} />Delete</button>
+        <button className="btn-outline" onClick={() => archive(t, false)}>Restore</button>
+      </>) : (<>
+        <button className="btn-ghost" onClick={() => archive(t, true)}>Archive</button>
+        <button className="btn-ghost" onClick={() => openEditor({ type: 'workout' })}>Plan</button>
+        <button className="btn-primary" onClick={() => startNow(t.id, t.name)}><Icon name="play" size={16} />Start now</button>
+      </>)}
+    </li>
+  );
   return (
     <div>
       <div className="flex justify-end mb-4"><button className="btn-outline" onClick={() => setEditing('new')}><Icon name="plus" size={16} />New template</button></div>
       {!db.workout_templates.length ? <Empty title="No templates yet" body="A template is a reusable list of exercises and target sets." /> : (
-        <ul className="border-t border-ink-700">
-          {db.workout_templates.map((t) => (
-            <li key={t.id} className="row py-4 flex-wrap">
-              <button className="flex-1 min-w-[200px] text-left" onClick={() => setEditing(t.id)}>
-                <span className="flex items-center gap-2 text-[17px]">{t.name}</span>
-                <span className="block text-sm text-fg-2 mt-0.5">{t.items.map((i) => exName(i.exercise_id)).join(' · ') || 'No exercises'}</span>
-              </button>
-              <button className="btn-ghost" onClick={() => openEditor({ type: 'workout' })}>Plan</button>
-              <button className="btn-primary" onClick={() => startNow(t.id, t.name)}><Icon name="play" size={16} />Start now</button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {active.length === 0 ? <Empty title="No active templates" body="Restore one from Archived below, or make a new plan." /> : <ul className="border-t border-ink-700 stagger">{active.map((t) => <TemplateRow key={t.id} t={t} />)}</ul>}
+          {archived.length > 0 && (
+            <section className="mt-10">
+              <button className="label flex items-center gap-2 min-h-[44px]" aria-expanded={showArchived} onClick={() => setShowArchived(!showArchived)}>
+                Archived · {archived.length}<Icon name={showArchived ? 'up' : 'down'} size={14} /></button>
+              {showArchived && <ul className="border-t border-ink-700 anim-fade">{archived.map((t) => <TemplateRow key={t.id} t={t} />)}</ul>}
+              <p className="text-sm text-fg-3 mt-2">Archived templates stop repeating on your calendar. Past workouts stay in your history.</p>
+            </section>
+          )}
+        </>
       )}
       {editing && <TemplateEditor tpl={editing === 'new' ? null : db.workout_templates.find((t) => t.id === editing) ?? null} onClose={() => setEditing(null)} />}
     </div>
@@ -351,23 +405,35 @@ function Templates() {
 function TemplateEditor({ tpl, onClose }: { tpl: WorkoutTemplate | null; onClose: () => void }) {
   const db = useDB();
   const s = useSettings();
-  const [d, setD] = useState(() => tpl ? structuredClone({ name: tpl.name, notes: tpl.notes, items: tpl.items }) : { name: '', notes: '', items: [] as TemplateItem[] });
+  const [d, setD] = useState(() => tpl ? structuredClone({ name: tpl.name, notes: tpl.notes, items: tpl.items, weekdays: tpl.weekdays ?? [], plan_time: tpl.plan_time ?? '' }) : { name: '', notes: '', items: [] as TemplateItem[], weekdays: [] as number[], plan_time: '' });
   const [picking, setPicking] = useState(false);
   const exById = new Map(db.exercises.map((e) => [e.id, e]));
   const setItem = (i: number, p: Partial<TemplateItem>) => setD((x) => ({ ...x, items: x.items.map((it, j) => (j === i ? { ...it, ...p } : it)) }));
   const move = (i: number, dir: -1 | 1) => setD((x) => { const a = [...x.items]; const j = i + dir; if (j < 0 || j >= a.length) return x; [a[i], a[j]] = [a[j], a[i]]; return { ...x, items: a }; });
   const save = () => {
     if (!d.name.trim()) return;
-    if (tpl) store.update('workout_templates', tpl.id, { ...d, name: d.name.trim() }); else store.insert('workout_templates', { ...d, name: d.name.trim() });
+    const data = { ...d, name: d.name.trim(), plan_time: d.weekdays.length && d.plan_time ? d.plan_time : null };
+    if (tpl) store.update('workout_templates', tpl.id, data); else store.insert('workout_templates', data);
     store.toast('Template saved'); onClose();
   };
   return (
     <Sheet open onClose={onClose} wide title={tpl ? 'Edit template' : 'New template'} footer={<>
       {tpl && <button className="btn-danger mr-auto" onClick={async () => { if (await confirmAction({ title: 'Delete template?', body: 'Workouts already planned or logged from it are kept.', confirm: 'Delete', danger: true })) { store.remove('workout_templates', tpl.id, { undo: 'Template deleted' }); onClose(); } }}><Icon name="trash" size={16} />Delete</button>}
+      {tpl && <button className="btn-ghost" onClick={() => { store.update('workout_templates', tpl.id, { archived: !tpl.archived }); store.toast(tpl.archived ? 'Template restored' : 'Template archived'); onClose(); }}>{tpl.archived ? 'Restore' : 'Archive'}</button>}
       <button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={!d.name.trim()} onClick={save}>Save template</button></>}>
       <div className="space-y-5">
         <Field label="Name"><input className="input" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder="e.g. Upper A" /></Field>
         <Field label="Notes"><input className="input" value={d.notes} onChange={(e) => setD({ ...d, notes: e.target.value })} /></Field>
+        <div className="space-y-3">
+          <span className="label block">Repeat on</span>
+          <WeekdayPicker value={d.weekdays} onChange={(v) => setD({ ...d, weekdays: v })} locale={s.date_locale} weekStart={s.week_start} />
+          {d.weekdays.length > 0 ? (
+            <Field label="Time (optional)" hint="Leave blank if your time changes — it shows all-day on those days and you can still start it any time.">
+              <div className="flex gap-2"><input type="time" className="input" value={d.plan_time} onChange={(e) => setD({ ...d, plan_time: e.target.value })} />
+                {d.plan_time && <button className="btn-ghost" onClick={() => setD({ ...d, plan_time: '' })}>Clear</button>}</div>
+            </Field>
+          ) : <p className="text-sm text-fg-3">Pick days and this workout appears on your calendar and Today automatically each week.</p>}
+        </div>
         <div>
           <span className="label block mb-2">Exercises</span>
           <ol className="space-y-2">
@@ -410,6 +476,8 @@ function TemplateEditor({ tpl, onClose }: { tpl: WorkoutTemplate | null; onClose
 function Exercises() {
   const db = useDB();
   const [edit, setEdit] = useState<Exercise | 'new' | null>(null);
+  const [search, setSearch] = useState('');
+  const builtIn = missingCatalog(db.exercises).filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
   const [f, setF] = useState({ name: '', kind: 'weighted' as ExerciseKind, notes: '' });
   useEffect(() => { if (edit && edit !== 'new') setF({ name: edit.name, kind: edit.kind, notes: edit.notes }); else setF({ name: '', kind: 'weighted', notes: '' }); }, [edit]);
   const used = (id: string) => db.workouts.some((w) => w.entries.some((e) => e.exercise_id === id));
@@ -421,19 +489,40 @@ function Exercises() {
   const groups: ExerciseKind[] = ['weighted', 'bodyweight', 'timed'];
   return (
     <div>
-      <div className="flex justify-end mb-4"><button className="btn-outline" onClick={() => setEdit('new')}><Icon name="plus" size={16} />New exercise</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <input className="input max-w-xs" placeholder="Search exercises" aria-label="Search exercises" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <button className="btn-outline" onClick={() => setEdit('new')}><Icon name="plus" size={16} />Your own exercise</button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-8">
         {groups.map((k) => (
           <section key={k}>
             <p className="label mb-2">{KIND_LABEL[k]}</p>
             <ul className="border-t border-ink-700">
-              {db.exercises.filter((e) => e.kind === k).sort((a, b) => a.name.localeCompare(b.name)).map((e) => (
+              {db.exercises.filter((e) => e.kind === k && e.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)).map((e) => (
                 <li key={e.id}><button className="row w-full text-left hover:text-fg text-fg" onClick={() => setEdit(e)}>{e.name}</button></li>
               ))}
             </ul>
           </section>
         ))}
       </div>
+      {builtIn.length > 0 && (
+        <section className="mt-12" aria-label="Built-in library">
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
+            <div><p className="label mb-1">Built-in library · {builtIn.length}</p><p className="text-sm text-fg-2">Ready-made exercises with setup cues. Tap Add to put one in your list — or just pick them when building a template.</p></div>
+            <button className="btn-outline" onClick={() => { builtIn.forEach(adoptExercise); store.toast(`${builtIn.length} exercises added`); }}>Add all</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10">
+            <ul className="border-t border-ink-700 md:col-span-2 md:columns-2 md:gap-x-10 [&>li]:break-inside-avoid">
+              {builtIn.map((c) => (
+                <li key={c.name} className="row">
+                  <span className="flex-1 min-w-0"><span className="block truncate">{c.name}</span><span className="meta text-fg-3">{c.group} · {KIND_LABEL[c.kind]}</span></span>
+                  <button className="btn-ghost" aria-label={`Add ${c.name}`} onClick={() => { adoptExercise(c); store.toast(`${c.name} added`); }}><Icon name="plus" size={16} />Add</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
       <Sheet open={!!edit} onClose={() => setEdit(null)} title={edit === 'new' ? 'New exercise' : 'Edit exercise'} footer={<>
         {edit && edit !== 'new' && <button className="btn-danger mr-auto" onClick={async () => {
           if (await confirmAction({ title: 'Delete exercise?', body: used(edit.id) ? 'Logged sets stay in your history but will show as “Deleted exercise”.' : 'It will be removed from your library.', confirm: 'Delete', danger: true })) { store.remove('exercises', edit.id, { undo: 'Exercise deleted' }); setEdit(null); }

@@ -28,7 +28,7 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/routines/new'); dialog_ok(pg, 'New routine')
     pg.screenshot(path='/home/claude/shots/dialog-routine-1440.png'); pg.keyboard.press('Escape')
     pg.goto(BASE + '#/gym/exercises'); pg.wait_for_timeout(500)
-    pg.get_by_role('button', name='New exercise').click(); dialog_ok(pg, 'New exercise'); pg.keyboard.press('Escape')
+    pg.get_by_role('button', name='Your own exercise').click(); dialog_ok(pg, 'New exercise'); pg.keyboard.press('Escape')
     pg.goto(BASE + '#/gym/templates'); pg.wait_for_timeout(500)
     pg.get_by_role('button', name='New template').click(); dialog_ok(pg, 'New template')
     pg.get_by_role('button', name='Add exercise').click(); dialog_ok(pg, 'Add exercise (inside template)'); pg.keyboard.press('Escape'); pg.keyboard.press('Escape')

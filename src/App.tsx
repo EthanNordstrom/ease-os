@@ -179,7 +179,7 @@ function Shell() {
 
   return (
     <div className="min-h-[100dvh] md:flex">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] btn-primary">Skip to content</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] btn-primary whitespace-nowrap">Skip to content</a>
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-[232px] lg:w-[248px] shrink-0 sticky top-0 h-[100dvh] border-r border-ink-700 px-4 py-6">

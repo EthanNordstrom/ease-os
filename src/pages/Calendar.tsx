@@ -9,6 +9,7 @@ import { navigate } from '../lib/router';
 import { tagHex } from '../lib/palette';
 import { TagEditor, TagManager } from '../components/Tags';
 import { setUi } from '../lib/prefs';
+import { materialiseTemplate } from '../lib/workouts';
 
 type View = 'month' | 'week' | 'agenda';
 const useIsDesktop = () => {
@@ -21,7 +22,7 @@ const useIsDesktop = () => {
 export function openItem(i: CalItem) {
   if (i.kind === 'event') openEditor({ type: 'event', id: i.refId, occurrenceDate: i.occ?.recurring ? i.occ.originalDate : undefined });
   else if (i.kind === 'routine') openEditor({ type: 'routineDay', routineId: i.refId, date: i.date });
-  else if (i.kind === 'workout') navigate(`gym/session/${i.refId}`);
+  else if (i.kind === 'workout') { if (i.virtual) { const w = materialiseTemplate(i.virtual.templateId, i.date); if (w) navigate(`gym/session/${w.id}`); } else navigate(`gym/session/${i.refId}`); }
   else if (i.kind === 'goal') navigate(`goals/${i.refId}`);
   else if (i.kind === 'bill' || i.kind === 'payday' || i.kind === 'saving') navigate('money');
   else openEditor({ type: 'milestone', id: i.refId });
@@ -34,7 +35,7 @@ function moveItem(i: CalItem, to: ISODate) {
     const e = i.occ.event;
     if (e.recurrence) store.update('events', e.id, (x) => ({ exceptions: { ...x.exceptions, [i.occ!.originalDate]: { ...(x.exceptions[i.occ!.originalDate] ?? {}), date: to } } }));
     else store.update('events', e.id, { date: to });
-  } else if (i.kind === 'workout') store.update('workouts', i.refId, { planned_date: to });
+  } else if (i.kind === 'workout' && !i.virtual) store.update('workouts', i.refId, { planned_date: to });
   else if (i.kind === 'goal') store.update('goals', i.refId, { target_date: to });
   else if (i.kind === 'milestone') store.update('milestones', i.refId, { due_date: to });
   else return;
@@ -125,7 +126,7 @@ function Legend() {
 function ItemRow({ i, compact = false }: { i: CalItem; compact?: boolean }) {
   const s = useSettings();
   const color = i.color;
-  const draggable = ['event', 'workout', 'goal', 'milestone'].includes(i.kind);
+  const draggable = ['event', 'workout', 'goal', 'milestone'].includes(i.kind) && !i.virtual;
   return (
     <button onClick={(e) => { e.stopPropagation(); openItem(i); }} draggable={draggable}
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', i.key); (window as any).__dragItem = i; }}

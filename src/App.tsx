@@ -7,6 +7,7 @@ import { ConfirmHost, Field, Icon, SaveIndicator, Sheet, SyncIssues, ThemeToggle
 import Welcome from './pages/Welcome';
 import Intro, { resetIntro, shouldShowIntro } from './components/Intro';
 import { nowParts } from './lib/dates';
+import { applyRemotePrefs } from './lib/prefs';
 import { BRAND } from './lib/brand';
 import { EditorHost, openEditor } from './components/editors';
 import Today from './pages/Today';
@@ -127,6 +128,7 @@ function Shell() {
   const [menu, setMenu] = useState(false);
   const [intro, setIntro] = useState(shouldShowIntro);
   useEffect(() => { document.title = s.app_title; }, [s.app_title]);
+  useEffect(() => { if (st.ready && st.db.settings.length) applyRemotePrefs(s); }, [st.ready, s.theme, s.accent]);
 
   if (!st.ready) {
     if (st.loadError) return (

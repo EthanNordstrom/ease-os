@@ -8,6 +8,7 @@ import { openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
 import { tagHex } from '../lib/palette';
 import { TagEditor, TagManager } from '../components/Tags';
+import { setUi } from '../lib/prefs';
 
 type View = 'month' | 'week' | 'agenda';
 const useIsDesktop = () => {
@@ -49,8 +50,9 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<ISODate>(today);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [newTag, setNewTag] = useState(false);
-  const [hidden, setHidden] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('ep.calHidden') || '[]'); } catch { return []; } });
-  useEffect(() => localStorage.setItem('ep.calHidden', JSON.stringify(hidden)), [hidden]);
+  // Calendar filters are saved to the account, so they match on every device.
+  const hidden = s.ui?.calHidden ?? [];
+  const setHidden = (fn: (h: string[]) => string[]) => setUi({ calHidden: fn(hidden) });
 
   const { from, to } = useMemo(() => {
     if (view === 'month') { const g = monthGrid(anchor, s.week_start); return { from: g[0], to: g[g.length - 1] }; }

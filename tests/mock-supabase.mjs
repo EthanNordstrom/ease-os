@@ -15,7 +15,7 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
 const TABLES = new Set(['settings', 'routines', 'routine_completions', 'goals', 'milestones', 'tasks', 'exercises', 'workout_templates', 'workouts', 'events', 'quotes', 'reviews', 'tags', 'nutrition_goals', 'foods', 'food_logs', 'meal_plans', 'shopping_items', 'weigh_ins']);
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -74,8 +74,10 @@ http.createServer(async (req, res) => {
     // ---------- rpc ----------
     const rpc = url.pathname.match(/^\/rest\/v1\/rpc\/(\w+)$/);
     if (rpc) {
-      await asUser(subFrom(req), () => db.query(`select public.${rpc[1]}()`));
-      return send(res, 204);
+      if (!['get_my_data', 'erase_my_data', 'delete_my_account'].includes(rpc[1])) return send(res, 404, { code: 'PGRST202', message: 'not found' });
+      const r = await asUser(subFrom(req), () => db.query(`select public.${rpc[1]}() as r`));
+      const v = r.rows[0]?.r;
+      return v === null || v === undefined || v === '' ? send(res, 204) : send(res, 200, v);
     }
     // ---------- rest ----------
     const m = url.pathname.match(/^\/rest\/v1\/(\w+)$/);

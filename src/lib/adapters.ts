@@ -30,6 +30,8 @@ export const supabase: SupabaseClient | null = cloudConfigured
 
 // Server-side protections (supabase/migrations/0004): EP429 = too many writes this minute, EP413 = storage quota.
 const friendly = (error: any): OpResult => {
+  if (error?.code === 'PGRST204' || /could not find the .* column/i.test(error?.message ?? ''))
+    return { ok: false, kind: 'error', message: 'The database needs its latest update. Run the newest file in supabase/migrations, then try again.' };
   if (error?.code === 'EP429' || /rate limit/i.test(error?.message ?? '')) return { ok: false, kind: 'busy' };
   if (error?.code === 'EP413') return { ok: false, kind: 'error', message: 'You’ve reached the storage limit for this kind of item. Delete some old ones to add more.' };
   return { ok: false, kind: 'error', message: error?.message ?? String(error) };
@@ -49,6 +51,10 @@ export class CloudAdapter implements Adapter {
   constructor(private sb: SupabaseClient, private userId: string) {}
 
   async loadAll(): Promise<DB> {
+    // One request for everything (migration 0006). Falls back to one request per table on older databases.
+    const one = await this.sb.rpc('get_my_data');
+    if (!one.error && one.data && typeof one.data === 'object') return { ...emptyDB(), ...(one.data as Partial<DB>) } as DB;
+    if (one.error && looksOffline(one.error)) throw one.error;
     const db = emptyDB();
     const results = await Promise.all(TABLES.map((t) => this.sb.from(t).select('*')));
     results.forEach((r, i) => {

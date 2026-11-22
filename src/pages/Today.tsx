@@ -6,8 +6,9 @@ import { CheckButton, Empty, Icon, Progress, SectionHead, confirmAction } from '
 import { openEditor, toggleRoutineItem } from '../components/editors';
 import { navigate } from '../lib/router';
 import QuoteCard from '../components/QuoteCard';
-import { startWorkout } from './Gym';
+import { startWorkout } from '../lib/workouts';
 import { dayTotals, fmtKcal, guessAisle, r0 } from '../lib/food';
+import { setUi } from '../lib/prefs';
 
 export default function Today() {
   const db = useDB();
@@ -43,7 +44,8 @@ export default function Today() {
 
 function GettingStarted() {
   const db = useDB();
-  const [hidden, setHidden] = useState(() => localStorage.getItem('ep.hideSetup') === '1');
+  const s = useSettings();
+  const hidden = !!s.ui?.hideSetup;
   const steps = [
     { done: db.routines.length > 0, label: 'Create your routine', go: () => navigate('routines/new') },
     { done: db.goals.some((g) => g.stage !== 'idea'), label: 'Add a goal you’re working toward', go: () => openEditor({ type: 'goal', stage: 'active' }) },
@@ -56,7 +58,7 @@ function GettingStarted() {
     <section aria-label="Get set up" className="mb-12 py-4 border-y border-ink-700">
       <div className="flex items-center justify-between gap-3 mb-2">
         <p className="label">Get set up · {steps.filter((x) => x.done).length} of {steps.length}</p>
-        <button className="btn-ghost -mr-3 text-sm" onClick={() => { localStorage.setItem('ep.hideSetup', '1'); setHidden(true); }}>Hide</button>
+        <button className="btn-ghost -mr-3 text-sm" onClick={() => setUi({ hideSetup: true })}>Hide</button>
       </div>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
         {steps.map((st) => (

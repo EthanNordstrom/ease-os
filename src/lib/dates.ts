@@ -41,9 +41,12 @@ export function monthGrid(anchor: ISODate, weekStart: number): ISODate[] {
 }
 
 // "Now" in the user's timezone.
+const safeTZ = (tz: string) => { try { new Intl.DateTimeFormat('en', { timeZone: tz }); return tz; } catch { return 'UTC'; } };
+const safeLocale = (l: string) => { try { new Intl.DateTimeFormat(l); return l; } catch { return 'en-AU'; } };
+
 export function nowParts(tz: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    timeZone: safeTZ(tz), year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(new Date());
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
   return { date: `${get('year')}-${get('month')}-${get('day')}` as ISODate, time: `${get('hour')}:${get('minute')}`, hour: Number(get('hour')) };
@@ -52,7 +55,8 @@ export const todayISO = (tz: string) => nowParts(tz).date;
 
 // Display helpers — formatted as UTC so the calendar date is preserved exactly.
 export function fmtDate(d: ISODate, locale: string, opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }) {
-  return new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'UTC' }).format(toUTC(d));
+  if (!isValidISO(d)) return '—';
+  return new Intl.DateTimeFormat(safeLocale(locale), { ...opts, timeZone: 'UTC' }).format(toUTC(d));
 }
 export const fmtShort = (d: ISODate, locale: string) => fmtDate(d, locale, { weekday: 'short', day: 'numeric', month: 'short' });
 export const fmtNumeric = (d: ISODate, locale: string) => fmtDate(d, locale, { day: '2-digit', month: '2-digit', year: 'numeric' });

@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from '
 import { createPortal } from 'react-dom';
 import { store, useStore } from '../lib/store';
 import { weekdayShort } from '../lib/dates';
-import { setThemePref, useTheme } from '../lib/theme';
+import { useTheme } from '../lib/theme';
+import { chooseTheme } from '../lib/prefs';
 
 /* ---------------- Icons (1.5px strokes, minimal) ---------------- */
 const paths: Record<string, string> = {
@@ -289,7 +290,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
   const { resolved } = useTheme();
   const next = resolved === 'dark' ? 'light' : 'dark';
   return (
-    <button className={`icon-btn ${className}`} onClick={() => setThemePref(next)} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`}>
+    <button className={`icon-btn ${className}`} onClick={() => chooseTheme(next)} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`}>
       <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={19} />
     </button>
   );

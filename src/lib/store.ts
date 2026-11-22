@@ -103,6 +103,10 @@ class Store {
     window.addEventListener('offline', this.onOffline);
     document.addEventListener('visibilitychange', this.onVisible);
     window.addEventListener('focus', this.onVisible);
+    // Quietly pick up changes from other devices while the app stays open.
+    if (adapter.mode === 'cloud') this.pollTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine && !this.state.conflicts.length) this.flush().then(() => this.refresh());
+    }, 120000);
   }
 
   stop() {
@@ -110,6 +114,8 @@ class Store {
     window.removeEventListener('offline', this.onOffline);
     document.removeEventListener('visibilitychange', this.onVisible);
     window.removeEventListener('focus', this.onVisible);
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = null;
     this.adapter = null;
     this.set({ ready: false, db: emptyDB() });
   }
@@ -123,11 +129,18 @@ class Store {
     this.flush().then(() => this.refresh());
   };
 
-  async refresh(initial = false) {
+  /** Bumped on every confirmed save, so a refresh that overlapped a save can be detected. */
+  private saveSeq = 0;
+  private pollTimer: number | null = null;
+
+  async refresh(initial = false, attempt = 0): Promise<void> {
     if (!this.adapter) return;
     this.lastRefresh = Date.now();
+    const seq = this.saveSeq;
     try {
       const db = await this.adapter.loadAll();
+      // A save finished while we were loading: this snapshot may predate it, so load again.
+      if (seq !== this.saveSeq && attempt < 3) return this.refresh(initial, attempt + 1);
       this.set({ db: this.replay(db), ready: true, loadError: null, lastSyncedAt: new Date().toISOString() });
       this.cache();
       if (initial) await this.ensureSettings();
@@ -254,6 +267,7 @@ class Store {
         op.inflight = false;
         if (res.ok) {
           this.outbox = this.outbox.filter((o) => o !== op);
+          this.saveSeq++;
           this.reconcile(op, res.row);
           this.set({ online: true, lastSyncedAt: new Date().toISOString() });
         } else if (res.kind === 'offline') {
@@ -316,6 +330,12 @@ class Store {
     if (!mine && !theirs) return;
     const key = `${op.table}:${op.id}`;
     this.set({ conflicts: [...this.state.conflicts.filter((c) => c.key !== key), { key, table: op.table, id: op.id, mine, theirs, label }] });
+    // If only preferences (theme, accent, filters) differ, the most recent choice wins without asking.
+    if (op.table === 'settings' && mine && theirs) {
+      const skip = new Set(['theme', 'accent', 'ui', 'version', 'updated_at', 'created_at']);
+      const same = Object.keys(theirs).every((k) => skip.has(k) || JSON.stringify(theirs[k]) === JSON.stringify(mine[k]));
+      if (same) this.resolveConflict(key, 'mine');
+    }
   }
 
   resolveConflict(key: string, choice: 'mine' | 'theirs') {

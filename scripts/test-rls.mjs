@@ -17,7 +17,7 @@ await db.exec(`
   grant usage on schema public, auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+for (const f of ['0001_init.sql', '0002_hardening.sql', '0003_accounts.sql', '0004_tags_and_limits.sql', '0005_food_and_shopping.sql', '0006_review_hardening.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -99,6 +99,21 @@ ok((await as(B, `update foods set calories = 1 where id = $1 returning id`, [foo
 await as(A, `delete from foods where id = $1`, [food]);
 ok((await as(A, `select food_id, calories from food_logs`)).rows[0]?.food_id === null && Number((await as(A, `select calories from food_logs`)).rows[0].calories) === 800, 'deleting a saved food keeps past log entries');
 
+// Review hardening: limits, synced preferences, one-request load
+await throws(() => as(A, `insert into tasks (title) values (repeat('x', 5000))`), 'oversized text is rejected');
+await throws(() => as(A, `insert into routines (name, weekdays) values ('Bad', '{9}')`), 'invalid weekdays are rejected');
+await throws(() => as(A, `insert into goals (title) values ('')`), 'empty titles are rejected');
+await as(A, `insert into settings (display_name) values ('first')`);
+await as(A, `update settings set theme = 'light', accent = 'teal', ui = '{"calHidden":["gym"]}'`);
+ok((await as(A, `select theme, accent from settings`)).rows[0].theme === 'light', 'theme and accent are stored on the account');
+await throws(() => as(A, `update settings set theme = 'neon'`), 'theme must be dark, light or system');
+await throws(() => as(A, `update settings set timezone = '<script>'`), 'timezone must look like a real timezone');
+const mine = (await as(A, `select public.get_my_data() d`)).rows[0].d;
+ok(mine.settings.length === 1 && mine.settings[0].user_id === A && mine.routines.length > 0 && mine.routines.every((t) => t.user_id === A) && Array.isArray(mine.weigh_ins), 'get_my_data returns the caller’s data in one request');
+const theirs = (await as(B, `select public.get_my_data() d`)).rows[0].d;
+ok(theirs.goals.every((g) => g.user_id === B) && !theirs.tasks.some((t) => t.user_id === A), 'get_my_data never includes another user’s rows');
+await throws(() => as(null, `select public.get_my_data()`), 'signed-out callers cannot load data');
+
 // Write rate limit
 let blocked = false, done = 0;
 for (let i = 0; i < 260 && !blocked; i++) {
@@ -109,7 +124,6 @@ await throws(() => as(A, `select * from private.write_counters`), 'rate-limit co
 await db.exec(`reset role; update private.write_counters set window_start = window_start - interval '2 minutes'`);
 await as(A, `insert into tasks (title) values ('after cool-down')`);
 ok(true, 'writes work again after the window passes');
-await as(A, `insert into settings (display_name) values ('first')`);
 await throws(() => as(A, `insert into settings (display_name) values ('second')`), 'quota: only one settings row per user');
 
 // Self-service erase / delete only ever touch the caller's own data

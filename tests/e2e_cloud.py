@@ -89,6 +89,21 @@ with sync_playwright() as p:
     laptop.goto(BASE + '#/today'); laptop.wait_for_timeout(800)
     check(laptop.get_by_text('Offline priority').is_visible(), 'laptop: sees the change made offline on the phone')
 
+    # Preferences follow the account
+    phone.goto(BASE + '#/settings'); phone.wait_for_timeout(600)
+    phone.get_by_role('radio', name='Light').click(); phone.get_by_role('radio', name='Teal').click()
+    check(wait_saved(phone), 'phone: theme and accent saved to the account')
+    sync(laptop)
+    check(laptop.evaluate("document.documentElement.dataset.theme") == 'light' and laptop.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--acid').trim()") not in ('', '185 219 110'),
+          'laptop: picks up the light theme and teal accent from the phone')
+    laptop.goto(BASE + '#/calendar'); laptop.wait_for_timeout(600)
+    laptop.locator('main').get_by_role('button', name='Gym', exact=True).click(); laptop.wait_for_timeout(300)
+    check(wait_saved(laptop), 'laptop: calendar filter saved')
+    sync(phone)
+    phone.goto(BASE + '#/calendar'); phone.wait_for_timeout(600)
+    check(phone.locator('main').get_by_role('button', name='Gym', exact=True).get_attribute('aria-pressed') == 'false', 'phone: calendar filters match the laptop')
+    phone.evaluate("localStorage.clear()"); phone.reload(); phone.wait_for_timeout(300)
+
     # A different user sees none of it
     sign_in(other, 'someone@example.com', 'password456', create=True)
     wait_saved(other, 30)

@@ -22,6 +22,10 @@ export interface Settings extends Base {
   date_locale: string; // e.g. en-AU
   hour12: boolean;
   default_rest_seconds: number;
+  // Synced preferences (migration 0006)
+  theme?: 'dark' | 'light' | 'system';
+  accent?: string;
+  ui?: { calHidden?: string[]; hideSetup?: boolean };
 }
 
 export interface RoutineItem { id: string; title: string; notes?: string; minutes?: number | null }

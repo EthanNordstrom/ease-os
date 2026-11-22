@@ -4,7 +4,8 @@ import { supabase, LocalAdapter } from '../lib/adapters';
 import { timezones, todayISO } from '../lib/dates';
 import { BUILTIN_QUOTES } from '../lib/quotes';
 import { BRAND } from '../lib/brand';
-import { ACCENTS, setAccent, setThemePref, useAccent, useTheme, type ThemePref } from '../lib/theme';
+import { ACCENTS, useAccent, useTheme, type ThemePref } from '../lib/theme';
+import { chooseAccent, chooseTheme } from '../lib/prefs';
 import { Field, Icon, SectionHead, Segmented, Sheet, Toggle, confirmAction } from '../components/ui';
 import { toggleFavourite } from '../components/QuoteCard';
 import { resetIntro } from '../components/Intro';
@@ -78,7 +79,7 @@ export default function SettingsPage() {
 
       <section className="mb-14">
         <SectionHead title="Appearance" />
-        <Segmented<ThemePref> label="Theme" value={theme.pref} onChange={setThemePref}
+        <Segmented<ThemePref> label="Theme" value={theme.pref} onChange={chooseTheme}
           options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Match device' }]} />
         <div className="mt-8">
           <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -87,7 +88,7 @@ export default function SettingsPage() {
           </div>
           <div role="radiogroup" aria-label="Accent colour" className="flex flex-wrap gap-2">
             {ACCENTS.map((c) => (
-              <button key={c.key} role="radio" aria-checked={accent === c.key} aria-label={c.name} title={c.name} onClick={() => setAccent(c.key)}
+              <button key={c.key} role="radio" aria-checked={accent === c.key} aria-label={c.name} title={c.name} onClick={() => chooseAccent(c.key)}
                 className={`w-11 h-11 md:w-9 md:h-9 shrink-0 rounded-full grid place-items-center transition-transform duration-200 hover:scale-110 active:scale-95 ${accent === c.key ? 'ring-2 ring-offset-2 ring-offset-ink-950 ring-fg' : ''}`}
                 style={{ background: c.hex }}>
                 {accent === c.key && <Icon name="check" size={14} strokeWidth={2.8} className={c.key === 'acid' ? 'text-[#14180B]' : 'text-white'} />}
@@ -100,7 +101,7 @@ export default function SettingsPage() {
             <span className="w-24 h-1 rounded-full bg-ink-700 overflow-hidden"><span className="block h-full w-2/3 bg-acid" /></span>
           </div>
         </div>
-        <p className="text-sm text-fg-3 mt-4">Theme and accent are saved on this device.</p>
+        <p className="text-sm text-fg-3 mt-4">{st.mode === 'cloud' ? 'Saved to your account, so every device you sign in on matches.' : 'Saved in this browser.'}</p>
       </section>
 
       <section className="mb-14">

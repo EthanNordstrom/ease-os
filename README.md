@@ -70,7 +70,7 @@ Works on iPhone, Android and desktop. Install it to your home screen, use it in 
 **Account & settings**
 - Sign up, sign in, email link, forgot password, change password, sign out
 - Name, timezone, week start, date format, 12/24-hour time, default rest time
-- Theme (dark / light / match device) and 21 accent colours
+- Theme (dark / light / match device) and 21 accent colours — saved to your account, so every device matches (calendar filters too)
 - Export all your data (JSON), erase all data, delete account
 - Works offline after the first load; changes upload when you're back online
 - Edits from two devices never silently overwrite each other — you choose which to keep
@@ -80,6 +80,8 @@ Works on iPhone, Android and desktop. Install it to your home screen, use it in 
 - Limits on how fast and how much one account can write, to stop spam
 - Optional Cloudflare Turnstile bot check on sign-up and sign-in
 - Strict browser security headers
+- Every text field has a sensible size limit, checked by the database
+- Your whole account loads in a single request, and changes from other devices appear when you reopen the app or every couple of minutes
 
 ---
 
@@ -90,7 +92,7 @@ You need free accounts on **GitHub**, **Supabase** and **Cloudflare**.
 ### 1. Database (Supabase)
 1. Create a project at supabase.com (pick the region closest to you).
 2. Open **SQL Editor → New query**. Run each file in `supabase/migrations` **in order**, one at a time:
-   `0001` → `0002` → `0003` → `0004` → `0005`. Each should say *Success*.
+   `0001` → `0002` → `0003` → `0004` → `0005` → `0006`. Each should say *Success*.
 3. **Authentication → URL Configuration**: set *Site URL* to your app's address (you'll get it in step 3) and add the same address under *Redirect URLs*.
 4. **Project Settings → API Keys**: copy the **Project URL** and the **publishable** key.
    Never use the *secret* key anywhere.
@@ -110,6 +112,7 @@ Upload this whole folder to a GitHub repository (Add file → Upload files → C
 4. Deploy. Your app is at `https://<name>.<you>.workers.dev`. Put that address into step 1.3.
 
 ### 4. Before letting other people sign up
+- **Sign-in settings** (Authentication → Sign In / Providers → Email): keep *Confirm email* on, set *Minimum password length* to 8, and turn on *Secure email change*.
 - **Email**: Supabase's built-in email only reaches your own team. Add your own sender (e.g. Resend) in **Authentication → Emails → SMTP Settings**, and keep **Confirm email** on.
 - **Bot protection (optional)**: create a Turnstile widget in Cloudflare, put its *secret* key in Supabase **Authentication → Attack Protection**, and its *site* key in Cloudflare as `VITE_TURNSTILE_SITE_KEY`. Turn it on in Supabase first.
 - **Privacy policy**: add a short page saying you store people's email and the data they enter, and that they can export or delete it any time.
@@ -154,6 +157,7 @@ python3 tests/e2e_cloud.py  http://localhost:4174/   # two devices, conflicts, o
 python3 tests/e2e_fresh.py  http://localhost:4175/   # brand-new account, theme, password, erase, delete
 python3 tests/e2e_layout.py http://localhost:4173/   # dialogs, centred pages, accent, startup animation
 python3 tests/smoke.py      http://localhost:4173/   # no sideways scrolling at 390 / 768 / 1440 px
+python3 tests/crawl.py      http://localhost:4173/   # presses every non-destructive control on every screen
 ```
 
 ## Known limitations
@@ -162,5 +166,4 @@ python3 tests/smoke.py      http://localhost:4173/   # no sideways scrolling at 
 - First sign-in needs a connection; after that the app opens offline with your last-synced data.
 - The rest timer can't send notifications while the app is closed.
 - Food values are what you enter (no barcode scanner or food database yet).
-- Theme and accent colour are per device.
 - Free Supabase projects have no downloadable backups — use Settings → Export now and then.

@@ -7,6 +7,7 @@ import { Empty, Field, Icon, Segmented, Sheet, confirmAction, num } from '../com
 import { entriesFromTemplate, openEditor } from '../components/editors';
 import { navigate } from '../lib/router';
 import LineChart from '../components/LineChart';
+import { startWorkout } from '../lib/workouts';
 import { createPortal } from 'react-dom';
 
 type Tab = 'plan' | 'templates' | 'exercises' | 'history' | 'progress';
@@ -35,12 +36,6 @@ export default function Gym({ sub, id }: { sub?: string; id?: string }) {
   );
 }
 
-export function startWorkout(w: Workout) {
-  const other = store.state.db.workouts.find((x) => x.status === 'in_progress' && x.id !== w.id);
-  if (other) { store.toast(`Finish “${other.name}” first`, { label: 'Open', run: () => navigate(`gym/session/${other.id}`) }); return; }
-  store.update('workouts', w.id, { status: 'in_progress', started_at: new Date().toISOString(), planned_date: w.planned_date ?? todayISO(store.settings.timezone) });
-  navigate(`gym/session/${w.id}`);
-}
 
 function startNow(templateId: string | null, name: string) {
   const today = todayISO(store.settings.timezone);

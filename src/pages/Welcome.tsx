@@ -3,6 +3,7 @@ import { store, DEFAULT_SETTINGS } from '../lib/store';
 import { timezones } from '../lib/dates';
 import { Field, ThemeToggle } from '../components/ui';
 import { BRAND } from '../lib/brand';
+import { getAccent, getThemePref } from '../lib/theme';
 
 const LOCALES: [string, string][] = [
   ['en-AU', 'Australia (15/11/2026)'], ['en-NZ', 'New Zealand (15/11/2026)'], ['en-GB', 'UK (15/11/2026)'],
@@ -19,7 +20,7 @@ export default function Welcome() {
   const tzs = timezones();
   const start = (e: React.FormEvent) => {
     e.preventDefault();
-    store.insert('settings', { ...DEFAULT_SETTINGS, ...f, display_name: f.display_name.trim() });
+    store.insert('settings', { ...DEFAULT_SETTINGS, ...f, display_name: f.display_name.trim(), theme: getThemePref(), accent: getAccent(), ui: {} });
   };
   return (
     <div className="min-h-[100dvh] flex flex-col justify-center px-6 py-12 pt-safe relative">

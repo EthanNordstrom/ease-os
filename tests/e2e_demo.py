@@ -240,9 +240,10 @@ with sync_playwright() as p:
 
     # 5. Quotes
     pg.goto(BASE + '#/today'); pg.wait_for_timeout(300)
-    q1 = pg.locator('blockquote').inner_text()
-    pg.get_by_role('button', name='Another').click()
-    check(pg.locator('blockquote').inner_text() != q1, '“Another” shows a different quote')
+    quote = pg.locator('section[aria-label="Daily line"] p').last
+    q1 = quote.inner_text()
+    pg.get_by_role('button', name='Another line').click(); pg.wait_for_timeout(200)
+    check(quote.inner_text() != q1, '“Another” shows a different quote')
     pg.get_by_role('button', name='Save to favourites').click(); pg.wait_for_timeout(200)
     check(any(q['favourite'] for q in localdb(pg)['quotes']), 'quote can be saved as a favourite')
 

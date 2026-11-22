@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { store, useDB, useSettings } from '../lib/store';
-import { addDays, fmtDate, fmtTime, nowParts, relativeDay } from '../lib/dates';
-import { calendarItems, goalProgress, nextAction, routineProgress, routineScheduledOn } from '../lib/domain';
+import { addDays, fmtDate, fmtTime, nowParts, relativeDay, timeToMin } from '../lib/dates';
+import { calendarItems, goalProgress, nextAction, pickCurrentRoutine, routineProgress, routineScheduledOn } from '../lib/domain';
+import type { Routine } from '../lib/types';
 import { CheckButton, Empty, Icon, Progress, SectionHead, confirmAction } from '../components/ui';
 import { openEditor, toggleRoutineItem } from '../components/editors';
 import { navigate } from '../lib/router';
@@ -26,16 +27,16 @@ export default function Today() {
       <GettingStarted />
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-x-16 gap-y-12">
         <div className="space-y-12 min-w-0">
-          <RoutinesToday today={today} />
+          <RoutinesToday today={today} nowMin={timeToMin(now)} />
           <Priorities today={today} />
           <NextActions />
         </div>
         <div className="space-y-12 min-w-0">
+          <QuoteCard today={today} compact />
           <FoodToday today={today} />
           <WorkoutToday today={today} />
           <ShoppingPeek />
           <UpNext today={today} now={now} />
-          <QuoteCard today={today} />
         </div>
       </div>
     </div>
@@ -75,9 +76,37 @@ function GettingStarted() {
   );
 }
 
-function RoutinesToday({ today }: { today: string }) {
+function RoutineChecklist({ r, today }: { r: Routine; today: string }) {
+  const db = useDB();
+  const p = routineProgress(db, r, today);
+  const complete = p.total > 0 && p.current === p.total;
+  return (
+    <>
+      <Progress ratio={p.total ? p.current / p.total : 0} label={`${r.name} progress`} />
+      {complete && <p className="flex items-center gap-2 text-sm text-acid mt-3 anim-rise"><span className="relative w-2 h-2 rounded-full bg-acid"><span className="absolute inset-0 rounded-full border border-acid anim-ring" /></span>All done. Nice work.</p>}
+      <ul className="mt-2 stagger">
+        {r.items.map((it) => {
+          const done = p.done.has(it.id);
+          return (
+            <li key={it.id} className="row">
+              <CheckButton checked={done} onClick={() => toggleRoutineItem(r.id, it.id, it.title, today)} label={it.title} />
+              <span className={`flex-1 min-w-0 transition-colors ${done ? 'text-fg-3 line-through decoration-ink-500' : ''}`}>
+                {it.title}
+                {it.notes && <span className="block text-sm text-fg-3 no-underline">{it.notes}</span>}
+              </span>
+              {it.minutes ? <span className="meta text-fg-3">{it.minutes}m</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+function RoutinesToday({ today, nowMin }: { today: string; nowMin: number }) {
   const db = useDB();
   const s = useSettings();
+  const [open, setOpen] = useState<string | null>(null);
   const routines = db.routines.filter((r) => routineScheduledOn(r, today)).sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
   if (!db.routines.length)
     return (
@@ -90,44 +119,46 @@ function RoutinesToday({ today }: { today: string }) {
     return (
       <section aria-labelledby="rt">
         <SectionHead label="Routine" title="Nothing scheduled today" />
-        <Empty title="No routines today" body="Rest days count too." action={<button className="btn-outline" onClick={() => navigate('routines')}>Manage routines</button>} />
+        <p className="text-fg-2 py-3 border-y border-ink-700">No routines today — rest days count too.</p>
       </section>
     );
+  // Show the routine that fits the time of day; the rest stay one tap away.
+  const current = pickCurrentRoutine(routines, nowMin)!;
+  const others = routines.filter((r) => r.id !== current.id);
+  const p = routineProgress(db, current, today);
   return (
-    <>
-      {routines.map((r) => {
-        const p = routineProgress(db, r, today);
-        const complete = p.total > 0 && p.current === p.total;
-        return (
-          <section key={r.id} aria-label={r.name}>
-            <div className="flex items-end justify-between gap-3 mb-3">
-              <div>
-                <p className="label mb-1">{r.start_time ? `Routine · ${fmtTime(r.start_time, s.hour12)}` : 'Routine'}</p>
-                <h2 className="h-section">{r.name}</h2>
-              </div>
-              <p className="meta">{p.current} / {p.total}</p>
-            </div>
-            <Progress ratio={p.total ? p.current / p.total : 0} label={`${r.name} progress`} />
-            {complete && <p className="flex items-center gap-2 text-sm text-acid mt-3 anim-rise"><span className="relative w-2 h-2 rounded-full bg-acid"><span className="absolute inset-0 rounded-full border border-acid anim-ring" /></span>All done. Nice start.</p>}
-            <ul className="mt-2 stagger">
-              {r.items.map((it) => {
-                const done = p.done.has(it.id);
-                return (
-                  <li key={it.id} className="row">
-                    <CheckButton checked={done} onClick={() => toggleRoutineItem(r.id, it.id, it.title, today)} label={it.title} />
-                    <span className={`flex-1 min-w-0 transition-colors ${done ? 'text-fg-3 line-through decoration-ink-500' : ''}`}>
-                      {it.title}
-                      {it.notes && <span className="block text-sm text-fg-3 no-underline">{it.notes}</span>}
-                    </span>
-                    {it.minutes ? <span className="meta text-fg-3">{it.minutes}m</span> : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
-    </>
+    <section aria-label={current.name}>
+      <div className="flex items-end justify-between gap-3 mb-3">
+        <div>
+          <p className="label mb-1">{current.start_time ? `Routine · ${fmtTime(current.start_time, s.hour12)}` : 'Routine'}</p>
+          <h2 className="h-section">{current.name}</h2>
+        </div>
+        <p className="meta">{p.current} / {p.total}</p>
+      </div>
+      <RoutineChecklist r={current} today={today} />
+      {others.length > 0 && (
+        <div className="mt-5">
+          <p className="label mb-1">Also today</p>
+          <ul className="border-t border-ink-700">
+            {others.map((r) => {
+              const op = routineProgress(db, r, today);
+              const isOpen = open === r.id;
+              return (
+                <li key={r.id} className="border-b border-ink-700">
+                  <button className="w-full flex items-center gap-3 min-h-[48px] text-left" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.id)}>
+                    <span className="flex-1 min-w-0 truncate">{r.name}</span>
+                    {r.start_time && <span className="meta text-fg-3">{fmtTime(r.start_time, s.hour12)}</span>}
+                    <span className={`meta ${op.total && op.current === op.total ? 'text-acid' : ''}`}>{op.current}/{op.total}</span>
+                    <Icon name={isOpen ? 'up' : 'down'} size={16} className="text-fg-3" />
+                  </button>
+                  {isOpen && <div className="pb-3 anim-rise"><RoutineChecklist r={r} today={today} /></div>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -238,9 +269,15 @@ function FoodToday({ today }: { today: string }) {
           {g && <div className="text-right"><p className="text-[18px] tabular-nums">{fmtKcal(Math.abs(left), s.date_locale)}</p><p className="meta mt-1">{left >= 0 ? 'to go' : 'over target'}</p></div>}
         </div>
         {g && <div className="mt-4"><Progress ratio={Math.min(1, t.calories / g.calories)} label="Calories eaten compared with your target" /></div>}
-        {g?.protein ? (
-          <p className="flex justify-between meta mt-4"><span>Protein</span><span className="text-fg tabular-nums">{r0(t.protein)}<span className="text-fg-3"> / {g.protein} g</span></span></p>
-        ) : null}
+        <div className="grid grid-cols-3 gap-4 mt-5">
+          {([['Protein', t.protein, g?.protein], ['Carbs', t.carbs, g?.carbs], ['Fat', t.fat, g?.fat]] as const).map(([label, v, goal]) => (
+            <div key={label}>
+              <p className="meta text-fg-3">{label}</p>
+              <p className="tabular-nums mt-1">{r0(v)}<span className="text-fg-3 text-sm">{goal ? ` / ${goal}` : ''} g</span></p>
+              {goal ? <div className="mt-2"><Progress ratio={Math.min(1, v / goal)} label={`${label} compared with target`} /></div> : null}
+            </div>
+          ))}
+        </div>
         <div className="flex flex-wrap gap-2 mt-5">
           <button className="btn-primary" onClick={() => openEditor({ type: 'food', date: today })}><Icon name="plus" size={16} />Log food</button>
           {!g && <button className="btn-ghost" onClick={() => navigate('food')}>Set a target</button>}
@@ -313,7 +350,12 @@ function WorkoutToday({ today }: { today: string }) {
             </div>
             {w.status === 'completed'
               ? <span className="chip text-acid border-acid/40"><Icon name="check" size={14} />Done</span>
-              : <button className="btn-primary" onClick={() => (w.status === 'in_progress' ? navigate(`gym/session/${w.id}`) : startWorkout(w))}><Icon name="play" size={16} />{w.status === 'in_progress' ? 'Resume' : 'Start'}</button>}
+              : <div className="flex items-center gap-1">
+                  {w.status === 'in_progress' && !sets.some((x) => x.done) && <button className="btn-ghost" onClick={async () => {
+                    if (await confirmAction({ title: 'Discard this workout?', body: 'Nothing has been logged in it yet.', confirm: 'Discard', danger: true })) store.remove('workouts', w.id, { undo: 'Workout discarded' });
+                  }}>Discard</button>}
+                  <button className="btn-primary" onClick={() => (w.status === 'in_progress' ? navigate(`gym/session/${w.id}`) : startWorkout(w))}><Icon name="play" size={16} />{w.status === 'in_progress' ? 'Resume' : 'Start'}</button>
+                </div>}
           </div>
         );
       })}

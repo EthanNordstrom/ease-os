@@ -17,6 +17,7 @@ export default function Routines({ startNew = false }: { startNew?: boolean }) {
         <div>
           <p className="label mb-3">Routines</p>
           <h1 className="h-display">Small things, most days.</h1>
+          <p className="text-fg-2 mt-3 max-w-xl">Today shows the routine that fits the time: each one from its start time for about 5½ hours, otherwise the next one coming up. Your other routines sit just below it.</p>
         </div>
         <button className="btn-outline" onClick={() => setEditing('new')}><Icon name="plus" size={18} />New routine</button>
       </header>

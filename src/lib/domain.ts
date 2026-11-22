@@ -12,6 +12,22 @@ export function routineProgress(db: DB, r: Routine, d: ISODate) {
   return { done, current, total: r.items.length };
 }
 
+/**
+ * Which routine matters right now. A timed routine is "current" from its start time for up to
+ * 5½ hours (so a 6:30am morning routine shows until midday); outside those windows the next one
+ * coming up is shown, and after the last one of the day it stays on screen. Untimed routines
+ * are only picked when there are no timed ones.
+ */
+export const ROUTINE_WINDOW_MIN = 330;
+export function pickCurrentRoutine(rs: Routine[], nowMin: number): Routine | null {
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const timed = rs.filter((r) => r.start_time).sort((a, b) => toMin(a.start_time!) - toMin(b.start_time!));
+  if (!timed.length) return rs[0] ?? null;
+  const active = [...timed].reverse().find((r) => toMin(r.start_time!) <= nowMin && nowMin < toMin(r.start_time!) + ROUTINE_WINDOW_MIN);
+  if (active) return active;
+  return timed.find((r) => toMin(r.start_time!) > nowMin) ?? timed[timed.length - 1];
+}
+
 /* ---------------- Recurring events ---------------- */
 
 export interface Occurrence { event: CalEvent; date: ISODate; originalDate: ISODate; title: string; all_day: boolean; start_time: string | null; end_time: string | null; notes: string; recurring: boolean }

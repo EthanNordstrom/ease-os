@@ -9,14 +9,14 @@ Works on iPhone, Android and desktop. Install it to your home screen, use it in 
 
 **Today**
 - Greeting, date and a "get set up" checklist for new accounts
-- Your routine checklist for today
+- The routine that fits the time of day (each one shows from its start time for about 5½ hours, otherwise the next one coming up), with your other routines one tap away
 - Up to three daily priorities, with one tap to carry over yesterday's unfinished ones
 - The next action for each active goal
-- Today's food: calories eaten, calories left, protein
+- Today's food: calories eaten, calories left, protein, carbs and fat
 - Today's workout with Start / Resume
 - Shopping list preview with quick add
 - Upcoming events and deadlines
-- A short daily line, with "another", favourites and your own lines
+- A small daily line at the top, with "another", favourites and your own lines
 
 **Routines**
 - As many routines as you like: name, ordered steps, notes, minutes, weekdays, start time, on/off
@@ -151,6 +151,7 @@ Edit `src/lib/brand.ts`, the `<title>` in `index.html` and `public/manifest.webm
 ### Tests
 ```bash
 npm run test:db                                # database: privacy, limits, history, dates
+npx tsx scripts/pick-routine.test.ts           # which routine Today shows at different times
 node tests/mock-supabase.mjs &                 # local stand-in for Supabase (same migrations)
 python3 tests/e2e_demo.py   http://localhost:4173/   # app flows (test build with VITE_TEST_SEED=1)
 python3 tests/e2e_cloud.py  http://localhost:4174/   # two devices, conflicts, offline, second user

@@ -25,7 +25,7 @@ export interface Settings extends Base {
   // Synced preferences (migration 0006)
   theme?: 'dark' | 'light' | 'system';
   accent?: string;
-  ui?: { calHidden?: string[]; hideSetup?: boolean };
+  ui?: { calHidden?: string[]; hideSetup?: boolean; hideAutoBills?: boolean };
 }
 
 export interface RoutineItem { id: string; title: string; notes?: string; minutes?: number | null }
@@ -35,6 +35,8 @@ export interface Routine extends Base {
   weekdays: number[]; // 0..6, Sunday = 0
   start_time: HHMM | null;
   active: boolean;
+  /** Show this routine's days on the calendar (default true). */
+  show_on_calendar?: boolean;
   sort: number;
 }
 export interface RoutineCompletion extends Base {

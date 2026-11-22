@@ -98,7 +98,7 @@ You need free accounts on **GitHub**, **Supabase** and **Cloudflare**.
 ### 1. Database (Supabase)
 1. Create a project at supabase.com (pick the region closest to you).
 2. Open **SQL Editor → New query**. Run each file in `supabase/migrations` **in order**, one at a time:
-   `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007` → `0008`. Each should say *Success*.
+   `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007` → `0008` → `0009`. Each should say *Success*.
 3. **Authentication → URL Configuration**: set *Site URL* to your app's address (you'll get it in step 3) and add the same address under *Redirect URLs*.
 4. **Project Settings → API Keys**: copy the **Project URL** and the **publishable** key.
    Never use the *secret* key anywhere.

@@ -3,6 +3,8 @@ import { store, useDB } from '../lib/store';
 import { AISLES, guessAisle } from '../lib/food';
 import type { Aisle, ShoppingItem } from '../lib/types';
 import { CheckButton, Empty, Field, Icon, Sheet, confirmAction } from '../components/ui';
+import { RecipeToShopping } from '../components/FoodSheets';
+import type { Food } from '../lib/types';
 
 export function addShoppingItem(name: string, amount = '', source = '') {
   const n = name.trim();
@@ -17,6 +19,9 @@ export default function Shopping() {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [edit, setEdit] = useState<ShoppingItem | null>(null);
+  const recipes = db.foods.filter((f) => f.kind === 'recipe' && f.ingredients.length > 0).sort((a, b) => a.name.localeCompare(b.name));
+  const [picking, setPicking] = useState(false);
+  const [recipe, setRecipe] = useState<Food | null>(null);
   const open = db.shopping_items.filter((x) => !x.done);
   const done = db.shopping_items.filter((x) => x.done);
   const add = (e: React.FormEvent) => { e.preventDefault(); if (addShoppingItem(name, amount)) { setName(''); setAmount(''); } };
@@ -36,6 +41,24 @@ export default function Shopping() {
         <button className="btn-primary shrink-0" disabled={!name.trim()}><Icon name="plus" size={16} />Add</button>
       </form>
 
+      {recipes.length > 0 && (
+        <div className="mb-8 -mt-4">
+          <button className="btn-outline" onClick={() => setPicking(true)}><Icon name="food" size={16} />Add a saved recipe</button>
+        </div>
+      )}
+      {picking && (
+        <Sheet open onClose={() => setPicking(false)} title="Add a recipe">
+          <p className="text-sm text-fg-2 mb-3">Pick one of your recipes and its ingredients go on the list. You can choose how many batches.</p>
+          <ul className="border-t border-ink-700">
+            {recipes.map((r) => (
+              <li key={r.id}><button className="row w-full text-left" onClick={() => { setPicking(false); setRecipe(r); }}>
+                <span className="flex-1 min-w-0"><span className="block truncate">{r.name}</span><span className="meta text-fg-3">{r.ingredients.length} ingredients · serves {r.servings_per_batch}</span></span>
+                <Icon name="right" size={16} className="text-fg-3" /></button></li>
+            ))}
+          </ul>
+        </Sheet>
+      )}
+      {recipe && <RecipeToShopping name={recipe.name} ingredients={recipe.ingredients} onClose={() => setRecipe(null)} />}
       {!db.shopping_items.length && <Empty title="Your list is empty" body="Add items here, from Today, or straight from a recipe’s ingredients." />}
 
       <div className="space-y-8">

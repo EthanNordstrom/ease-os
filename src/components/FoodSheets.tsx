@@ -270,7 +270,7 @@ export function addToShopping(items: { name: string; amount: string }[], source:
   return added;
 }
 
-function RecipeToShopping({ name, ingredients, onClose }: { name: string; ingredients: Ingredient[]; onClose: () => void }) {
+export function RecipeToShopping({ name, ingredients, onClose }: { name: string; ingredients: Ingredient[]; onClose: () => void }) {
   const [batches, setBatches] = useState(1);
   const scale = (amount: string) => {
     if (batches === 1) return amount;

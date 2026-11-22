@@ -5,7 +5,7 @@ import { timezones, todayISO } from '../lib/dates';
 import { BUILTIN_QUOTES } from '../lib/quotes';
 import { BRAND } from '../lib/brand';
 import { ACCENTS, useAccent, useTheme, type ThemePref } from '../lib/theme';
-import { chooseAccent, chooseTheme } from '../lib/prefs';
+import { chooseAccent, chooseTheme, setUi } from '../lib/prefs';
 import { Field, Icon, SectionHead, Segmented, Sheet, Toggle, confirmAction } from '../components/ui';
 import { toggleFavourite } from '../components/QuoteCard';
 import { resetIntro } from '../components/Intro';
@@ -102,6 +102,12 @@ export default function SettingsPage() {
           </div>
         </div>
         <p className="text-sm text-fg-3 mt-4">{st.mode === 'cloud' ? 'Saved to your account, so every device you sign in on matches.' : 'Saved in this browser.'}</p>
+      </section>
+
+      <section className="mb-14">
+        <SectionHead title="Calendar" />
+        <Toggle checked={!!s.ui?.hideAutoBills} onChange={(v) => setUi({ hideAutoBills: v })} label="Hide autopay bills" />
+        <p className="text-sm text-fg-3">Bills that pay themselves won’t clutter your calendar. They still count in your payday plan. Routines have their own “Show on calendar” switch in the routine editor.</p>
       </section>
 
       <section className="mb-14">

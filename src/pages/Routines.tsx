@@ -51,7 +51,7 @@ function RoutineBlock({ r, onEdit }: { r: Routine; onEdit: () => void }) {
         <div className="min-w-0">
           <h2 className="text-2xl tracking-tight">{r.name}</h2>
           <p className="meta mt-1">
-            {weekdaysLabel(r.weekdays, s.date_locale)}{r.start_time ? ` · ${fmtTime(r.start_time, s.hour12)}` : ''} · {r.items.length} steps{totalMin ? ` · ~${totalMin} min` : ''}{!r.active ? ' · Paused' : ''}
+            {weekdaysLabel(r.weekdays, s.date_locale)}{r.start_time ? ` · ${fmtTime(r.start_time, s.hour12)}` : ''} · {r.items.length} steps{totalMin ? ` · ~${totalMin} min` : ''}{!r.active ? ' · Paused' : ''}{r.show_on_calendar === false ? ' · Not on calendar' : ''}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -105,8 +105,8 @@ function RoutineBlock({ r, onEdit }: { r: Routine; onEdit: () => void }) {
 
 function RoutineEditor({ routine, onClose }: { routine: Routine | null; onClose: () => void }) {
   const s = useSettings();
-  const [d, setD] = useState(() => routine ? structuredClone({ name: routine.name, items: routine.items, weekdays: routine.weekdays, start_time: routine.start_time ?? '', active: routine.active })
-    : { name: '', items: [] as RoutineItem[], weekdays: [0, 1, 2, 3, 4, 5, 6], start_time: '', active: true });
+  const [d, setD] = useState(() => routine ? structuredClone({ name: routine.name, items: routine.items, weekdays: routine.weekdays, start_time: routine.start_time ?? '', active: routine.active, show_on_calendar: routine.show_on_calendar !== false })
+    : { name: '', items: [] as RoutineItem[], weekdays: [0, 1, 2, 3, 4, 5, 6], start_time: '', active: true, show_on_calendar: true });
   const [newItem, setNewItem] = useState('');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const setItem = (i: number, p: Partial<RoutineItem>) => setD((x) => ({ ...x, items: x.items.map((it, j) => (j === i ? { ...it, ...p } : it)) }));
@@ -121,7 +121,7 @@ function RoutineEditor({ routine, onClose }: { routine: Routine | null; onClose:
 
   const save = () => {
     if (!valid) return;
-    const data = { name: d.name.trim(), items: d.items.map((i) => ({ ...i, title: i.title.trim() })), weekdays: d.weekdays, start_time: d.start_time || null, active: d.active };
+    const data = { name: d.name.trim(), items: d.items.map((i) => ({ ...i, title: i.title.trim() })), weekdays: d.weekdays, start_time: d.start_time || null, active: d.active, show_on_calendar: d.show_on_calendar };
     if (routine) store.update('routines', routine.id, data);
     else store.insert('routines', { ...data, sort: store.state.db.routines.length });
     store.toast('Routine saved');
@@ -151,6 +151,10 @@ function RoutineEditor({ routine, onClose }: { routine: Routine | null; onClose:
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
           <Field label="Start time (optional)"><input type="time" className="input" value={d.start_time} onChange={(e) => setD({ ...d, start_time: e.target.value })} /></Field>
           <Toggle checked={d.active} onChange={(v) => setD({ ...d, active: v })} label="Active" />
+        </div>
+        <div>
+          <Toggle checked={d.show_on_calendar} onChange={(v) => setD({ ...d, show_on_calendar: v })} label="Show on calendar" />
+          <p className="text-sm text-fg-3">Turn off to keep this routine off your calendar. It still appears on Today.</p>
         </div>
 
         <div>

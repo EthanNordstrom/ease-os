@@ -4,7 +4,7 @@ import { addDays, diffDays, fmtDate, nowParts, relativeDay, todayISO } from '../
 import { SLOTS, dayTotals, fmtKcal, r0, r1, slotForHour, weekAverage } from '../lib/food';
 import type { Food, FoodLog, MealPlan, Slot } from '../lib/types';
 import { Empty, Field, Icon, Progress, SectionHead, Segmented, Sheet } from '../components/ui';
-import { AddFoodSheet, FoodEditor, GoalsSheet, LogEntrySheet, PlanEditor, logFood, logPlan } from '../components/FoodSheets';
+import { AddFoodSheet, FoodEditor, GoalsSheet, LogEntrySheet, PlanEditor, RecipeToShopping, logFood, logPlan } from '../components/FoodSheets';
 import LineChart from '../components/LineChart';
 import { navigate } from '../lib/router';
 
@@ -234,6 +234,7 @@ function Foods() {
   const db = useDB();
   const s = useSettings();
   const [edit, setEdit] = useState<Food | 'new' | null>(null);
+  const [shopFor, setShopFor] = useState<Food | null>(null);
   const [q, setQ] = useState('');
   const list = useMemo(() => db.foods.filter((f) => f.name.toLowerCase().includes(q.toLowerCase())).sort((a, b) => Number(b.favourite) - Number(a.favourite) || a.name.localeCompare(b.name)), [db.foods, q]);
   const groups: [Food['kind'], string][] = [['meal', 'Meals'], ['recipe', 'Recipes'], ['food', 'Foods']];
@@ -252,10 +253,13 @@ function Foods() {
                 <p className="label mb-2">{label} · {items.length}</p>
                 <ul className="border-t border-ink-700 stagger">
                   {items.map((f) => (
-                    <li key={f.id}><button className="row w-full text-left" onClick={() => setEdit(f)}>
-                      <span className="flex-1 min-w-0"><span className="block truncate">{f.favourite ? '★ ' : ''}{f.name}</span><span className="meta text-fg-3">{f.kind === 'recipe' ? `Serves ${f.servings_per_batch} · ${f.ingredients.length} ingredients` : f.serving}</span></span>
-                      <span className="meta text-right">{fmtKcal(Number(f.calories), s.date_locale)} kcal<span className="block text-fg-3">{r0(Number(f.protein))} g protein</span></span>
-                    </button></li>
+                    <li key={f.id} className="row p-0 gap-0">
+                      <button className="flex-1 min-w-0 flex items-center gap-3 text-left min-h-[52px] py-2" onClick={() => setEdit(f)}>
+                        <span className="flex-1 min-w-0"><span className="block truncate">{f.favourite ? '★ ' : ''}{f.name}</span><span className="meta text-fg-3">{f.kind === 'recipe' ? `Serves ${f.servings_per_batch} · ${f.ingredients.length} ingredients` : f.serving}</span></span>
+                        <span className="meta text-right">{fmtKcal(Number(f.calories), s.date_locale)} kcal<span className="block text-fg-3">{r0(Number(f.protein))} g protein</span></span>
+                      </button>
+                      {f.kind === 'recipe' && f.ingredients.length > 0 && <button className="icon-btn ml-1 shrink-0" aria-label={`Add ${f.name} to shopping list`} title="Add to shopping list" onClick={() => setShopFor(f)}><Icon name="cart" size={18} /></button>}
+                    </li>
                   ))}
                   {!items.length && <li className="py-3 text-sm text-fg-3">None yet.</li>}
                 </ul>
@@ -265,6 +269,7 @@ function Foods() {
         </div>
       )}
       {edit && <FoodEditor food={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
+      {shopFor && <RecipeToShopping name={shopFor.name} ingredients={shopFor.ingredients} onClose={() => setShopFor(null)} />}
     </div>
   );
 }

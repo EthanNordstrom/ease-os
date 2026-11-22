@@ -103,6 +103,7 @@ export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate
   }
   const days = rangeDays(from, to);
   for (const r of db.routines) {
+    if (r.show_on_calendar === false) continue;
     for (const d of days) {
       if (!routineScheduledOn(r, d)) continue;
       const p = routineProgress(db, r, d);
@@ -138,7 +139,8 @@ export function calendarItems(db: DB, from: ISODate, to: ISODate, today: ISODate
   // Money: bill due dates, paydays (with what to move) and savings deadlines
   const m = moneySettings(db);
   const cur = (n: number) => fmtMoney(n, m.currency, db.settings[0]?.date_locale ?? 'en-AU');
-  for (const b of db.bills.filter((x) => x.active)) {
+  const hideAuto = !!db.settings[0]?.ui?.hideAutoBills;
+  for (const b of db.bills.filter((x) => x.active && !(hideAuto && x.autopay))) {
     for (const d of repeatDates(b.due_date, b.frequency, from, to))
       items.push({ key: `b:${b.id}:${d}`, kind: 'bill', category: 'money', title: `${b.name} · ${cur(Number(b.amount))}`, date: d, all_day: true,
         start_time: null, end_time: null, completed: isPaid(db, b.id, d) || (b.autopay && d <= today), refId: b.id });
